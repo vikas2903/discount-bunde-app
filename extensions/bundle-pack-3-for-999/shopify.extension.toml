@@ -1,0 +1,21 @@
+api_version = "2026-01"
+
+[[extensions]]
+name = "t:name"
+handle = "bundle-pack-3-for-999"
+type = "function"
+uid = "d3da1e30-2140-9cd8-8375-6b5146062b5aa758bc0e"
+description = "t:description"
+
+  [[extensions.targeting]]
+  target = "cart.lines.discounts.generate.run"
+  input_query = "src/cart_lines_discounts_generate_run.graphql"
+  export = "cart-lines-discounts-generate-run"
+
+  [extensions.input.variables]
+  namespace = "$app:bundle-discount"
+  key = "function-configuration"
+
+  [extensions.build]
+  command = ""
+  path = "dist/function.wasm"

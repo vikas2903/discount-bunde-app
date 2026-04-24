@@ -1,0 +1,74 @@
+{
+  "payload": {
+    "export": "cart-lines-discounts-generate-run",
+    "target": "cart.lines.discounts.generate.run",
+    "input": {
+      "cart": {
+        "lines": [
+          {
+            "id": "gid://shopify/CartLine/0",
+            "quantity": 2,
+            "cost": {
+              "amountPerQuantity": {
+                "amount": "450.00"
+              }
+            },
+            "merchandise": {
+              "id": "gid://shopify/ProductVariant/1",
+              "product": {
+                "inSelectedCollections": true
+              }
+            }
+          },
+          {
+            "id": "gid://shopify/CartLine/1",
+            "quantity": 1,
+            "cost": {
+              "amountPerQuantity": {
+                "amount": "300.00"
+              }
+            },
+            "merchandise": {
+              "id": "gid://shopify/ProductVariant/2",
+              "product": {
+                "inSelectedCollections": true
+              }
+            }
+          }
+        ]
+      },
+      "discount": {
+        "discountClasses": ["ORDER"],
+        "metafield": {
+          "value": "{\"bundle2Price\":799,\"bundle3Price\":999,\"selectedCollectionIds\":[\"gid://shopify/Collection/1\"],\"message\":\"Bundle Discount Applied\"}"
+        }
+      }
+    },
+    "output": {
+      "operations": [
+        {
+          "orderDiscountsAdd": {
+            "candidates": [
+              {
+                "message": "Bundle Discount Applied",
+                "targets": [
+                  {
+                    "orderSubtotal": {
+                      "excludedCartLineIds": []
+                    }
+                  }
+                ],
+                "value": {
+                  "fixedAmount": {
+                    "amount": "201.00"
+                  }
+                }
+              }
+            ],
+            "selectionStrategy": "FIRST"
+          }
+        }
+      ]
+    }
+  }
+}

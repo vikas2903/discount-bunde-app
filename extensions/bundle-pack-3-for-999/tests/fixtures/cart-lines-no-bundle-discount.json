@@ -1,0 +1,36 @@
+{
+  "payload": {
+    "export": "cart-lines-discounts-generate-run",
+    "target": "cart.lines.discounts.generate.run",
+    "input": {
+      "cart": {
+        "lines": [
+          {
+            "id": "gid://shopify/CartLine/0",
+            "quantity": 1,
+            "cost": {
+              "amountPerQuantity": {
+                "amount": "450.00"
+              }
+            },
+            "merchandise": {
+              "id": "gid://shopify/ProductVariant/1",
+              "product": {
+                "inSelectedCollections": true
+              }
+            }
+          }
+        ]
+      },
+      "discount": {
+        "discountClasses": ["ORDER"],
+        "metafield": {
+          "value": "{\"bundle2Price\":799,\"bundle3Price\":999,\"selectedCollectionIds\":[]}"
+        }
+      }
+    },
+    "output": {
+      "operations": []
+    }
+  }
+}

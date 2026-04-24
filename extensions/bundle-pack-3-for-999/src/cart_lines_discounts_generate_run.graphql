@@ -1,0 +1,27 @@
+query CartInput($selectedCollectionIds: [ID!]) {
+  cart {
+    lines {
+      id
+      quantity
+      cost {
+        amountPerQuantity {
+          amount
+        }
+      }
+      merchandise {
+        ... on ProductVariant {
+          id
+          product {
+            inSelectedCollections: inAnyCollection(ids: $selectedCollectionIds)
+          }
+        }
+      }
+    }
+  }
+  discount {
+    discountClasses
+    metafield(namespace: "$app:bundle-discount", key: "function-configuration") {
+      value
+    }
+  }
+}
