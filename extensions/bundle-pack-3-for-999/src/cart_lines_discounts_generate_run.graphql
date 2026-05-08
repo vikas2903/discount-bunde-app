@@ -12,6 +12,7 @@ query CartInput($selectedCollectionIds: [ID!]) {
         ... on ProductVariant {
           id
           product {
+            id
             inSelectedCollections: inAnyCollection(ids: $selectedCollectionIds)
           }
         }
@@ -20,7 +21,13 @@ query CartInput($selectedCollectionIds: [ID!]) {
   }
   discount {
     discountClasses
-    metafield(namespace: "$app:bundle-discount", key: "function-configuration") {
+    bundleConfig: metafield(namespace: "$app:bundle-discount", key: "function-configuration") {
+      value
+    }
+    volumeConfig: metafield(namespace: "$app:volume-discount", key: "function-configuration") {
+      value
+    }
+    functionConfig: metafield( namespace:"$app:bundle-pack-3-for-999",key:"function-configuration"){
       value
     }
   }

@@ -16,8 +16,10 @@ export default function App() {
   return (
     <AppProvider embedded apiKey={apiKey}>
       <s-app-nav>
-        <s-link href="/app/disocunt_bundle">Bundle discount</s-link>
-        <s-link href="/app/additional">Additional page</s-link>
+        <s-link href="/app/disocunt_bundle">Bundle pricing discounts</s-link>
+        <s-link href="/app/flatoff_disocunt">Flat percentage discounts</s-link>
+        {/* <s-link href="/app/additional">Additional page</s-link> */}
+        <s-link href="/app/volume_discounts">Volume product discounts</s-link>
       </s-app-nav>
       <Outlet />
     </AppProvider>

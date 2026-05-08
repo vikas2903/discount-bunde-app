@@ -1,0 +1,16 @@
+query CartInput {
+  cart {
+    lines {
+      id
+    }
+  }
+  discount {
+    discountClasses
+    functionConfig: metafield(
+      namespace: "$app:simple-product-discount"
+      key: "function-configuration"
+    ) {
+      value
+    }
+  }
+}
