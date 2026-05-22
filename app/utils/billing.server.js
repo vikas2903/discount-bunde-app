@@ -20,10 +20,23 @@ export async function checkSubscription(billing) {
   return result.appSubscriptions?.[0] ?? null;
 }
 
-export async function requireSubscription(billing, request) {
-  // Return to the billing route first so the app can confirm the purchase
-  // and then redirect the merchant into the embedded dashboard.
-  const returnUrl = `${new URL(request.url).origin}/app/billing`;
+export async function requireSubscription(billing, request, shop) {
+  const requestUrl = new URL(request.url);
+  const returnUrl = new URL("/app/billing", requestUrl.origin);
+
+  // Preserve the shop and embed context so Shopify can re-enter the app cleanly
+  // after the hosted billing approval page closes.
+  if (shop) {
+    returnUrl.searchParams.set("shop", shop);
+  }
+
+  if (requestUrl.searchParams.get("host")) {
+    returnUrl.searchParams.set("host", requestUrl.searchParams.get("host"));
+  }
+
+  if (requestUrl.searchParams.get("embedded")) {
+    returnUrl.searchParams.set("embedded", requestUrl.searchParams.get("embedded"));
+  }
 
   // Send unpaid merchants straight to Shopify's hosted billing approval page.
   const result = await billing.require({
@@ -33,7 +46,7 @@ export async function requireSubscription(billing, request) {
       billing.request({
         plan: MONTHLY_PLAN,
         isTest: BILLING_TEST_MODE,
-        returnUrl,
+        returnUrl: returnUrl.toString(),
       }),
   });
 

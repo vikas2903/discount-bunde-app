@@ -12,8 +12,8 @@ const VOLUME_METAFIELD_KEY = "function-configuration";
 const DEFAULT_FUNCTION_HANDLE = "bundle-pack-3-for-999";
 
 export const loader = async ({ request }) => {
-  const { admin, billing } = await authenticate.admin(request);
-  await requireSubscription(billing, request);
+  const { admin, billing, session } = await authenticate.admin(request);
+  await requireSubscription(billing, request, session.shop);
   const env = typeof process !== "undefined" ? process.env : {};
   const [discountsResult] = await Promise.allSettled([
     admin.graphql(
@@ -89,8 +89,8 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { admin, billing } = await authenticate.admin(request);
-  await requireSubscription(billing, request);
+  const { admin, billing, session } = await authenticate.admin(request);
+  await requireSubscription(billing, request, session.shop);
   const formData = await request.formData();
   const env = typeof process !== "undefined" ? process.env : {};
   const intent = String(formData.get("intent") || "create");

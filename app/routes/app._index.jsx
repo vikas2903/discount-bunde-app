@@ -9,7 +9,7 @@ import { requireSubscription } from "../utils/billing.server";
 export const loader = async ({ request }) => {
   const { admin, billing, session } = await authenticate.admin(request);
   // Dashboard access is subscription-only, so unpaid shops are sent to Shopify billing first.
-  const subscription = await requireSubscription(billing, request);
+  const subscription = await requireSubscription(billing, request, session.shop);
 
   try {
     const { discounts, graphqlErrors } = await listBundleDiscounts(admin);
