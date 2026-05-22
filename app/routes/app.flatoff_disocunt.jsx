@@ -2,13 +2,15 @@ import { useEffect } from "react";
 import { useFetcher, useLoaderData } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
+import { requireSubscription } from "../utils/billing.server";
 
 const FUNCTION_HANDLE = "bundle-pack-3-for-999";
 const FLAT_PERCENTAGE_METAFIELD_NAMESPACE = "$app:bundle-pack-3-for-999";
 const FLAT_PERCENTAGE_METAFIELD_KEY = "function-configuration";
 
 export const loader = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
+  const { admin, redirect } = await authenticate.admin(request);
+  await requireSubscription(admin, redirect);
 
   try {
     const response = await admin.graphql(
@@ -82,7 +84,8 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
+  const { admin, redirect } = await authenticate.admin(request);
+  await requireSubscription(admin, redirect);
   const formData = await request.formData();
   const intent = String(formData.get("intent") || "create");
 

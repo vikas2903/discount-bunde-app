@@ -25,7 +25,7 @@
       "discount": {
         "discountClasses": ["ORDER"],
         "metafield": {
-          "value": "{\"bundle2Price\":799,\"bundle3Price\":999,\"selectedCollectionIds\":[]}"
+          "value": "{\"bundleTiers\":[{\"quantity\":2,\"price\":799},{\"quantity\":3,\"price\":999}],\"selectedCollectionIds\":[]}"
         }
       }
     },

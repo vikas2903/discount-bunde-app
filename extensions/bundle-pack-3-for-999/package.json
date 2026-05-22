@@ -4,11 +4,12 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "shopify": "npm exec -- shopify",
-    "typegen": "npm exec -- shopify app function typegen",
-    "build": "npm exec -- shopify app function build",
-    "preview": "npm exec -- shopify app function run",
-    "test": "vitest"
+    "shopify": "shopify",
+    "typecheck": "npm run typegen",
+    "typegen": "shopify app function typegen",
+    "build": "shopify app function build",
+    "preview": "shopify app function run",
+    "test": "set PATH=%APPDATA%\\npm;%PATH% && vitest"
   },
   "codegen": {
     "schema": "schema.graphql",

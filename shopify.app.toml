@@ -24,7 +24,7 @@ api_version = "2026-07"
 scopes = "read_products,write_products,read_discounts,write_discounts,read_themes,write_themes,write_metaobjects,write_metaobject_definitions"
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ "https://example.com/auth/callback" ]
 
 [product.metafields.app.demo_info]
 type = "single_line_text_field"

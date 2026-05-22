@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useFetcher, useLoaderData } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
+import { requireSubscription } from "../utils/billing.server";
 import DiscountList from "../components/volume-discounts/DiscountList";
 import VolumeDiscountForm from "../components/volume-discounts/VolumeDiscountForm";
 
@@ -11,7 +12,8 @@ const VOLUME_METAFIELD_KEY = "function-configuration";
 const DEFAULT_FUNCTION_HANDLE = "bundle-pack-3-for-999";
 
 export const loader = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
+  const { admin, redirect } = await authenticate.admin(request);
+  await requireSubscription(admin, redirect);
   const env = typeof process !== "undefined" ? process.env : {};
   const [discountsResult] = await Promise.allSettled([
     admin.graphql(
@@ -87,7 +89,8 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
+  const { admin, redirect } = await authenticate.admin(request);
+  await requireSubscription(admin, redirect);
   const formData = await request.formData();
   const env = typeof process !== "undefined" ? process.env : {};
   const intent = String(formData.get("intent") || "create");

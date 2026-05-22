@@ -1,25 +1,41 @@
+/* global process */
 import { Outlet, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
+import { checkSubscription } from "../utils/billing.server";
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
+  const { admin, redirect } = await authenticate.admin(request);
+  const url = new URL(request.url);
+  const subscription = await checkSubscription(admin);
+
+  if (!subscription && url.pathname !== "/app/billing") {
+    throw redirect("/app/billing");
+  }
+
+  if (subscription && url.pathname === "/app/billing") {
+    throw redirect("/app");
+  }
 
   // eslint-disable-next-line no-undef
-  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+  return {
+    apiKey: process.env.SHOPIFY_API_KEY || "",
+    hasSubscription: Boolean(subscription),
+  };
 };
 
 export default function App() {
-  const { apiKey } = useLoaderData();
+  const { apiKey, hasSubscription } = useLoaderData();
 
   return (
     <AppProvider embedded apiKey={apiKey}>
       <s-app-nav>
-        <s-link href="/app/disocunt_bundle">Bundle pricing discounts</s-link>
-        <s-link href="/app/flatoff_disocunt">Flat percentage discounts</s-link>
-        {/* <s-link href="/app/additional">Additional page</s-link> */}
-        <s-link href="/app/volume_discounts">Volume product discounts</s-link>
+        {hasSubscription ? <s-link href="/app">Dashboard</s-link> : null}
+        {hasSubscription ? (
+          <s-link href="/app/disocunt_bundle">Bundle discounts</s-link>
+        ) : null}
+        <s-link href="/app/billing">Plan</s-link>
       </s-app-nav>
       <Outlet />
     </AppProvider>

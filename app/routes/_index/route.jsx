@@ -18,9 +18,10 @@ export default function App() {
   return (
     <div className={styles.index}>
       <div className={styles.content}>
-        <h1 className={styles.heading}>A short heading about [your app]</h1>
+        <h1 className={styles.heading}>Build bundle offers for every store</h1>
         <p className={styles.text}>
-          A tagline about [your app] that describes your value proposition.
+          Discount Bundle App helps merchants create and manage automatic
+          bundle discounts from one simple dashboard.
         </p>
         {showForm && (
           <Form className={styles.form} method="post" action="/auth/login">
@@ -36,16 +37,16 @@ export default function App() {
         )}
         <ul className={styles.list}>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Create store-specific offers</strong>. Every merchant sees
+            and manages only the bundle discounts created for their own store.
           </li>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Edit without recreating</strong>. Update bundle pricing,
+            collections, and messaging from a dedicated edit flow.
           </li>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Control lifecycle</strong>. Disable, re-enable, or delete
+            discounts whenever a campaign changes.
           </li>
         </ul>
       </div>

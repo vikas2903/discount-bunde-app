@@ -1,330 +1,236 @@
-import { useEffect } from "react";
-import { useFetcher } from "react-router";
-import { useAppBridge } from "@shopify/app-bridge-react";
+import { useMemo } from "react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
+import { listBundleDiscounts } from "../services/bundle-discount.server";
+import { toErrorMessage } from "../utils/bundle-discount";
+import { useLoaderData, useNavigate } from "react-router";
+import { requireSubscription } from "../utils/billing.server";
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
+  const { admin, session, redirect } = await authenticate.admin(request);
+  const subscription = await requireSubscription(admin, redirect);
 
-  return null;
-};
 
-export const action = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
-  const color = ["Red", "Orange", "Yellow", "Green"][
-    Math.floor(Math.random() * 4)
-  ];
-  const response = await admin.graphql(
-    `#graphql
-      mutation populateProduct($product: ProductCreateInput!) {
-        productCreate(product: $product) {
-          product {
-            id
-            title
-            handle
-            status
-            variants(first: 10) {
-              edges {
-                node {
-                  id
-                  price
-                  barcode
-                  createdAt
-                }
-              }
-            }
-            demoInfo: metafield(namespace: "$app", key: "demo_info") {
-              jsonValue
-            }
-          }
-        }
-      }`,
-    {
-      variables: {
-        product: {
-          title: `${color} Snowboard`,
-          metafields: [
-            {
-              namespace: "$app",
-              key: "demo_info",
-              value: "Created by React Router Template",
-            },
-          ],
-        },
-      },
-    },
-  );
-  const responseJson = await response.json();
-  const product = responseJson.data.productCreate.product;
-  const variantId = product.variants.edges[0].node.id;
-  const variantResponse = await admin.graphql(
-    `#graphql
-    mutation shopifyReactRouterTemplateUpdateVariant($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-      productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-        productVariants {
-          id
-          price
-          barcode
-          createdAt
-        }
-      }
-    }`,
-    {
-      variables: {
-        productId: product.id,
-        variants: [{ id: variantId, price: "100.00" }],
-      },
-    },
-  );
-  const variantResponseJson = await variantResponse.json();
-  const metaobjectResponse = await admin.graphql(
-    `#graphql
-    mutation shopifyReactRouterTemplateUpsertMetaobject($handle: MetaobjectHandleInput!, $metaobject: MetaobjectUpsertInput!) {
-      metaobjectUpsert(handle: $handle, metaobject: $metaobject) {
-        metaobject {
-          id
-          handle
-          title: field(key: "title") {
-            jsonValue
-          }
-          description: field(key: "description") {
-            jsonValue
-          }
-        }
-        userErrors {
-          field
-          message
-        }
-      }
-    }`,
-    {
-      variables: {
-        handle: {
-          type: "$app:example",
-          handle: "demo-entry",
-        },
-        metaobject: {
-          fields: [
-            { key: "title", value: "Demo Entry" },
-            {
-              key: "description",
-              value:
-                "This metaobject was created by the Shopify app template to demonstrate the metaobject API.",
-            },
-          ],
-        },
-      },
-    },
-  );
-  const metaobjectResponseJson = await metaobjectResponse.json();
+  try {
+    const { discounts, graphqlErrors } = await listBundleDiscounts(admin);
 
-  return {
-    product: responseJson.data.productCreate.product,
-    variant: variantResponseJson.data.productVariantsBulkUpdate.productVariants,
-    metaobject: metaobjectResponseJson.data.metaobjectUpsert.metaobject,
-  };
+    return {
+      shop: session.shop,
+      discounts,
+      loadError: graphqlErrors.map(({ message }) => message).join(" | ") || null,
+    };
+  } catch (error) {
+    return {
+      shop: session.shop,
+      discounts: [],
+      subscription: {
+        id: subscription.id,
+        status: subscription.status,
+        trialDays: subscription.trialDays,
+        currentPeriodEnd: subscription.currentPeriodEnd,
+      },
+      loadError: toErrorMessage(error),
+    };
+  }
 };
 
 export default function Index() {
-  const fetcher = useFetcher();
-  const shopify = useAppBridge();
-  const isLoading =
-    ["loading", "submitting"].includes(fetcher.state) &&
-    fetcher.formMethod === "POST";
+  const navigate = useNavigate();
+  const { shop, discounts, loadError } = useLoaderData();
 
-  useEffect(() => {
-    if (fetcher.data?.product?.id) {
-      shopify.toast.show("Product created");
-    }
-  }, [fetcher.data?.product?.id, shopify]);
-  const generateProduct = () => fetcher.submit({}, { method: "POST" });
+  const statusSummary = useMemo(() => {
+    const active = discounts.filter((discount) => discount.status === "ACTIVE").length;
+    const inactive = discounts.filter((discount) => discount.status !== "ACTIVE").length;
+
+    return {
+      total: discounts.length,
+      active,
+      inactive,
+    };
+  }, [discounts]);
 
   return (
-    <s-page heading="Shopify app template">
-      <s-button slot="primary-action" onClick={generateProduct}>
-        Generate a product
+    <s-page heading="Dashboard">
+      <s-button
+        slot="primary-action"
+        variant="primary"
+        onClick={() => navigate("/app/disocunt_bundle")}
+      >
+        View bundle list
       </s-button>
 
-      <s-section heading="Congrats on creating a new Shopify app 🎉">
-        <s-paragraph>
-          This embedded app template uses{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/tools/app-bridge"
-            target="_blank"
+      <div style={{ display: "grid", gap: "0.9rem" }}>
+        <div
+          style={{
+            background:
+              "linear-gradient(135deg, #111111 0%, #1f1f1f 55%, #3b3b3b 100%)",
+            borderRadius: "1.1rem",
+            padding: "1rem",
+            color: "#ffffff",
+            boxShadow: "0 18px 40px rgba(0, 0, 0, 0.18)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              gap: "1rem",
+              flexWrap: "wrap",
+            }}
           >
-            App Bridge
-          </s-link>{" "}
-          interface examples like an{" "}
-          <s-link href="/app/additional">additional page in the app nav</s-link>
-          , as well as an{" "}
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql"
-            target="_blank"
-          >
-            Admin GraphQL
-          </s-link>{" "}
-          mutation demo, to provide a starting point for app development.
-        </s-paragraph>
-      </s-section>
-      <s-section heading="Get started with products">
-        <s-paragraph>
-          Generate a product with GraphQL and get the JSON output for that
-          product. Learn more about the{" "}
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql/latest/mutations/productCreate"
-            target="_blank"
-          >
-            productCreate
-          </s-link>{" "}
-          mutation in our API references. Includes a product{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/build/custom-data/metafields"
-            target="_blank"
-          >
-            metafield
-          </s-link>{" "}
-          and{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/build/custom-data/metaobjects"
-            target="_blank"
-          >
-            metaobject
-          </s-link>
-          .
-        </s-paragraph>
-        <s-stack direction="inline" gap="base">
-          <s-button
-            onClick={generateProduct}
-            {...(isLoading ? { loading: true } : {})}
-          >
-            Generate a product
-          </s-button>
-          {fetcher.data?.product && (
-            <s-button
-              onClick={() => {
-                shopify.intents.invoke?.("edit:shopify/Product", {
-                  value: fetcher.data?.product?.id,
-                });
+            <div style={{ display: "grid", gap: "0.5rem" }}>
+              <div style={heroBadgeStyle}>
+                Bundle dashboard
+              </div>
+              <h2 style={{ margin: 0, fontSize: "1.35rem", fontWeight: 800 }}>
+                Bundle discount status for {shop}
+              </h2>
+              <p
+                style={{
+                  margin: 0,
+                  maxWidth: "48rem",
+                  color: "rgba(255,255,255,0.9)",
+                  fontSize: "0.86rem",
+                }}
+              >
+                Track how many bundle discounts are live right now and quickly
+                review inactive campaigns from one colorful summary view.
+              </p>
+            </div>
+
+            <div
+              style={{
+                minWidth: "125px",
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                borderRadius: "0.9rem",
+                padding: "0.8rem 0.9rem",
+                backdropFilter: "blur(8px)",
               }}
-              target="_blank"
-              variant="tertiary"
             >
-              Edit product
-            </s-button>
-          )}
-        </s-stack>
-        {fetcher.data?.product && (
-          <s-section heading="productCreate mutation">
-            <s-stack direction="block" gap="base">
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre style={{ margin: 0 }}>
-                  <code>{JSON.stringify(fetcher.data.product, null, 2)}</code>
-                </pre>
-              </s-box>
+              <div style={{ fontSize: "0.76rem", color: "rgba(255,255,255,0.88)" }}>
+                Active now
+              </div>
+              <div style={{ fontSize: "1.6rem", fontWeight: 800, lineHeight: 1.1 }}>
+                {statusSummary.active}
+              </div>
+            </div>
+          </div>
+        </div>
 
-              <s-heading>productVariantsBulkUpdate mutation</s-heading>
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre style={{ margin: 0 }}>
-                  <code>{JSON.stringify(fetcher.data.variant, null, 2)}</code>
-                </pre>
-              </s-box>
+        {loadError ? (
+          <s-banner tone="critical">
+            <s-paragraph>{loadError}</s-paragraph>
+          </s-banner>
+        ) : null}
 
-              <s-heading>metaobjectUpsert mutation</s-heading>
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre style={{ margin: 0 }}>
-                  <code>
-                    {JSON.stringify(fetcher.data.metaobject, null, 2)}
-                  </code>
-                </pre>
-              </s-box>
-            </s-stack>
-          </s-section>
-        )}
-      </s-section>
+        <div
+          style={{
+            display: "grid",
+            gap: "0.8rem",
+            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          }}
+        >
+          <div style={buildStatCardStyle("#ffffff", "#111111", "#111111")}>
+            <div style={statBadgeStyle}>Overview</div>
+            <div style={statLabelStyle}>Total discounts</div>
+            <div style={statValueStyle}>{statusSummary.total}</div>
+            <div style={statHintStyle}>All bundle campaigns created for this store.</div>
+          </div>
 
-      <s-section slot="aside" heading="App template specs">
-        <s-paragraph>
-          <s-text>Framework: </s-text>
-          <s-link href="https://reactrouter.com/" target="_blank">
-            React Router
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Interface: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/api/app-home/using-polaris-components"
-            target="_blank"
+          <div style={buildStatCardStyle("#f4f4f4", "#111111", "#111111")}>
+            <div style={statBadgeStyle}>Live status</div>
+            <div style={statLabelStyle}>Active discounts</div>
+            <div style={statValueStyle}>{statusSummary.active}</div>
+            <div style={statHintStyle}>Currently running and visible to shoppers.</div>
+          </div>
+
+          <div style={buildStatCardStyle("#ebebeb", "#111111", "#111111")}>
+            <div style={statBadgeStyle}>Needs attention</div>
+            <div style={statLabelStyle}>Draft / inactive</div>
+            <div style={statValueStyle}>{statusSummary.inactive}</div>
+            <div style={statHintStyle}>Paused or not yet activated bundle discounts.</div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: "0.9rem 1rem",
+            border: "1px solid rgba(17,17,17,0.08)",
+            borderRadius: "0.9rem",
+            background: "#f7f7f7",
+            color: "#222222",
+            fontSize: "0.92rem",
+          }}
+        >
+          Support communication: email us at{" "}
+          <a
+            href="mailto:vikasprasad2903@gmail.com"
+            style={{ color: "#111111", fontWeight: 700, textDecoration: "none" }}
           >
-            Polaris web components
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>API: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql"
-            target="_blank"
-          >
-            GraphQL
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Custom data: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/apps/build/custom-data"
-            target="_blank"
-          >
-            Metafields &amp; metaobjects
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Database: </s-text>
-          <s-link href="https://www.prisma.io/" target="_blank">
-            Prisma
-          </s-link>
-        </s-paragraph>
-      </s-section>
-
-      <s-section slot="aside" heading="Next steps">
-        <s-unordered-list>
-          <s-list-item>
-            Build an{" "}
-            <s-link
-              href="https://shopify.dev/docs/apps/getting-started/build-app-example"
-              target="_blank"
-            >
-              example app
-            </s-link>
-          </s-list-item>
-          <s-list-item>
-            Explore Shopify&apos;s API with{" "}
-            <s-link
-              href="https://shopify.dev/docs/apps/tools/graphiql-admin-api"
-              target="_blank"
-            >
-              GraphiQL
-            </s-link>
-          </s-list-item>
-        </s-unordered-list>
-      </s-section>
+            vikasprasad2903@gmail.com
+          </a>
+        </div>
+      </div>
     </s-page>
   );
 }
+
+function buildStatCardStyle(background, accent, textColor) {
+  return {
+    background,
+    border: `1px solid ${accent}22`,
+    borderRadius: "1rem",
+    padding: "0.95rem",
+    boxShadow: "0 12px 30px rgba(15, 23, 42, 0.06)",
+    display: "grid",
+    gap: "0.4rem",
+    color: textColor,
+  };
+}
+
+const heroBadgeStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  width: "fit-content",
+  padding: "0.25rem 0.55rem",
+  borderRadius: "999px",
+  background: "rgba(255,255,255,0.12)",
+  fontSize: "0.72rem",
+  fontWeight: 700,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+};
+
+const statBadgeStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  width: "fit-content",
+  padding: "0.22rem 0.5rem",
+  borderRadius: "999px",
+  background: "rgba(17,17,17,0.08)",
+  fontSize: "0.68rem",
+  fontWeight: 700,
+  letterSpacing: "0.03em",
+  textTransform: "uppercase",
+};
+
+const statLabelStyle = {
+  fontSize: "0.9rem",
+  fontWeight: 700,
+};
+
+const statValueStyle = {
+  fontSize: "1.55rem",
+  fontWeight: 800,
+  lineHeight: 1.05,
+};
+
+const statHintStyle = {
+  fontSize: "0.8rem",
+  opacity: 0.7,
+};
 
 export const headers = (headersArgs) => {
   return boundary.headers(headersArgs);

@@ -1,112 +1,51 @@
 import { useEffect, useMemo, useState } from "react";
-import { useFetcher, useLoaderData } from "react-router";
+import { useFetcher, useLoaderData, useNavigate, useOutlet } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
+import {
+  deleteBundleDiscount,
+  getBundleCollections,
+  listBundleDiscounts,
+  toggleBundleDiscountStatus,
+} from "../services/bundle-discount.server";
 import { authenticate } from "../shopify.server";
-
-const BUNDLE_METAFIELD_NAMESPACE = "$app:bundle-discount";
-const BUNDLE_METAFIELD_KEY = "function-configuration";
-const DEFAULT_FUNCTION_HANDLE = "bundle-pack-3-for-999";
+import { toErrorMessage } from "../utils/bundle-discount";
+import { requireSubscription } from "../utils/billing.server";
 
 export const loader = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
-  const env = globalThis.process?.env ?? {};
+  const { admin, redirect } = await authenticate.admin(request);
+  await requireSubscription(admin, redirect);
   const [collectionsResult, discountsResult] = await Promise.allSettled([
-    admin.graphql(
-      `#graphql
-        query BundleCollections {
-          collections(first: 50) {
-            edges {
-              node {
-                id
-                title
-                handle
-              }
-            }
-          }
-        }`,
-    ),
-    admin.graphql(
-      `#graphql
-        query ExistingBundleDiscounts {
-          automaticDiscountNodes(first: 25) {
-            edges {
-              node {
-                id
-                metafield(
-                  namespace: "${BUNDLE_METAFIELD_NAMESPACE}"
-                  key: "${BUNDLE_METAFIELD_KEY}"
-                ) {
-                  value
-                }
-                automaticDiscount {
-                  ... on DiscountAutomaticApp {
-                    discountId
-                    title
-                    status
-                    startsAt
-                    endsAt
-                  }
-                }
-              }
-            }
-          }
-        }`,
-    ),
+    getBundleCollections(admin),
+    listBundleDiscounts(admin),
   ]);
 
   const collections =
     collectionsResult.status === "fulfilled"
-      ? ((await collectionsResult.value.json()).data?.collections?.edges?.map(
-          ({ node }) => node,
-        ) || [])
+      ? collectionsResult.value.collections
       : [];
-  const discountsResponseJson =
-    discountsResult.status === "fulfilled"
-      ? await discountsResult.value.json()
-      : null;
   const discounts =
-    discountsResponseJson?.data?.automaticDiscountNodes?.edges
-      ?.map(({ node }) => {
-        const configValue = node.metafield?.value;
-        const automaticDiscount = node.automaticDiscount;
-
-        if (!configValue || !automaticDiscount?.discountId) {
-          return null;
-        }
-
-        return {
-          nodeId: node.id,
-          discountId: automaticDiscount.discountId,
-          title: automaticDiscount.title,
-          status: automaticDiscount.status,
-          startsAt: automaticDiscount.startsAt,
-          endsAt: automaticDiscount.endsAt,
-          config: parseBundleConfig(configValue),
-        };
-      })
-      .filter(Boolean) || [];
-  const discountsGraphqlError =
-    discountsResponseJson?.errors?.map(({ message }) => message).join(" | ") ||
-    null;
-  const discountsError =
-    discountsResult.status === "rejected"
-      ? toErrorMessage(discountsResult.reason)
-      : discountsGraphqlError;
+    discountsResult.status === "fulfilled" ? discountsResult.value.discounts : [];
+  const loadErrors = [
+    ...(collectionsResult.status === "rejected"
+      ? [toErrorMessage(collectionsResult.reason)]
+      : collectionsResult.value.graphqlErrors.map(({ message }) => message)),
+    ...(discountsResult.status === "rejected"
+      ? [toErrorMessage(discountsResult.reason)]
+      : discountsResult.value.graphqlErrors.map(({ message }) => message)),
+  ];
 
   return {
     collections,
     discounts,
-    discountsError,
-    functionHandle:
-      env.SHOPIFY_BUNDLE_FUNCTION_HANDLE || DEFAULT_FUNCTION_HANDLE,
+    discountsError: loadErrors.join(" | ") || null,
   };
 };
 
 export const action = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
+  const { admin, redirect } = await authenticate.admin(request);
+  await requireSubscription(admin, redirect);
   const formData = await request.formData();
-  const env = globalThis.process?.env ?? {};
-  const intent = String(formData.get("intent") || "create");
+  const intent = String(formData.get("intent") || "");
 
   if (intent === "toggle-status") {
     const discountNodeId = String(formData.get("discountNodeId") || "").trim();
@@ -127,54 +66,12 @@ export const action = async ({ request }) => {
     }
 
     try {
-      const response = await admin.graphql(
-        `#graphql
-          mutation ToggleBundleDiscount($id: ID!) {
-            ${
-              nextStatus === "disable"
-                ? "discountAutomaticDeactivate"
-                : "discountAutomaticActivate"
-            }(id: $id) {
-              automaticDiscountNode {
-                automaticDiscount {
-                  ... on DiscountAutomaticApp {
-                    discountId
-                    title
-                    status
-                    startsAt
-                    endsAt
-                  }
-                }
-              }
-              userErrors {
-                field
-                message
-              }
-            }
-          }`,
-        {
-          variables: {
-            id: discountNodeId,
-          },
-        },
-      );
-
-      const responseJson = await response.json();
-      const payload =
-        nextStatus === "disable"
-          ? responseJson.data?.discountAutomaticDeactivate
-          : responseJson.data?.discountAutomaticActivate;
-      const userErrors = payload?.userErrors || [];
-
       return {
-        ok:
-          userErrors.length === 0 &&
-          Boolean(payload?.automaticDiscountNode?.automaticDiscount),
+        ...(await toggleBundleDiscountStatus(admin, {
+          id: discountNodeId,
+          nextStatus,
+        })),
         action: intent,
-        discount: payload?.automaticDiscountNode?.automaticDiscount,
-        userErrors,
-        graphqlErrors: responseJson.errors || [],
-        nextStatus,
       };
     } catch (error) {
       return {
@@ -186,415 +83,422 @@ export const action = async ({ request }) => {
     }
   }
 
-  const {
-    ids: selectedCollectionIds,
-    invalid: invalidCollectionIds,
-  } = parseCollectionIds(formData.getAll("selectedCollectionIds"));
+  if (intent === "delete") {
+    const discountNodeId = String(formData.get("discountNodeId") || "").trim();
 
-  const bundleConfig = {
-    bundle2Price: toPositiveNumber(formData.get("bundle2Price"), 799),
-    bundle3Price: toPositiveNumber(formData.get("bundle3Price"), 999),
-    selectedCollectionIds,
-    message:
-      String(formData.get("message") || "").trim() ||
-      "Bundle Discount Applied",
-  };
+    if (!discountNodeId) {
+      return {
+        ok: false,
+        action: intent,
+        userErrors: [
+          {
+            field: ["discountNodeId"],
+            message: "The selected bundle discount could not be deleted.",
+          },
+        ],
+        graphqlErrors: [],
+      };
+    }
 
-  if (invalidCollectionIds.length > 0) {
-    return {
-      ok: false,
-      userErrors: [
-        {
-          field: ["selectedCollectionIds"],
-          message:
-            "Collection IDs must be numeric IDs or Shopify GIDs like gid://shopify/Collection/123.",
-        },
-      ],
-      action: intent,
-      graphqlErrors: [],
-      invalidCollectionIds,
-      config: bundleConfig,
-    };
+    try {
+      return {
+        ...(await deleteBundleDiscount(admin, discountNodeId)),
+        action: intent,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        action: intent,
+        userErrors: [],
+        graphqlErrors: [{ message: toErrorMessage(error) }],
+      };
+    }
   }
 
-  const automaticAppDiscount = {
-    title: String(formData.get("title") || "").trim() || "Bundle Discount",
-    startsAt: new Date().toISOString(),
-    endsAt: null,
-    // Use the stable extension handle so this works across environments
-    // without needing to copy a function ID into env vars.
-    functionHandle:
-      env.SHOPIFY_BUNDLE_FUNCTION_HANDLE || DEFAULT_FUNCTION_HANDLE,
-    discountClasses: ["ORDER"],
-    combinesWith: {
-      productDiscounts: false,
-      orderDiscounts: false,
-      shippingDiscounts: false,
-    },
-    metafields: [
-      {
-        namespace: BUNDLE_METAFIELD_NAMESPACE,
-        key: BUNDLE_METAFIELD_KEY,
-        type: "json",
-        value: JSON.stringify(bundleConfig),
-      },
-    ],
+  return {
+    ok: false,
+    action: intent,
+    userErrors: [{ field: ["intent"], message: "Unsupported action." }],
+    graphqlErrors: [],
   };
-
-  // This creates one automatic discount owner. The Shopify Function code is
-  // deployed once, then Shopify invokes it dynamically whenever any buyer's
-  // cart/checkout is recalculated. The buyer's current cart lines and this
-  // metafield config are passed into that one isolated execution.
-  try {
-    const response = await admin.graphql(
-      `#graphql
-        mutation CreateBundleDiscount($automaticAppDiscount: DiscountAutomaticAppInput!) {
-          discountAutomaticAppCreate(automaticAppDiscount: $automaticAppDiscount) {
-            userErrors {
-              field
-              message
-            }
-            automaticAppDiscount {
-              discountId
-              title
-              status
-              startsAt
-              endsAt
-            }
-          }
-        }`,
-      {
-        variables: {
-          automaticAppDiscount,
-        },
-      },
-    );
-
-    const responseJson = await response.json();
-    const payload = responseJson.data?.discountAutomaticAppCreate;
-    const userErrors = payload?.userErrors || [];
-
-    return {
-      ok: userErrors.length === 0 && Boolean(payload?.automaticAppDiscount),
-      action: intent,
-      discount: payload?.automaticAppDiscount,
-      userErrors,
-      graphqlErrors: responseJson.errors || [],
-      config: bundleConfig,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      action: intent,
-      userErrors: [],
-      graphqlErrors: [{ message: toErrorMessage(error) }],
-      config: bundleConfig,
-    };
-  }
 };
 
 export default function DiscountBundlePage() {
-  const createFetcher = useFetcher();
-  const toggleFetcher = useFetcher();
+  const outlet = useOutlet();
+
+  if (outlet) {
+    return outlet;
+  }
+
+  return <DiscountBundleListPage />;
+}
+
+function DiscountBundleListPage() {
+  const actionFetcher = useFetcher();
+  const navigate = useNavigate();
   const shopify = useAppBridge();
-  const { collections, discounts, discountsError, functionHandle } =
-    useLoaderData();
-  const isSaving = createFetcher.state !== "idle";
-  const [selectedCollectionIds, setSelectedCollectionIds] = useState([]);
-  const togglingDiscountNodeId = toggleFetcher.formData?.get("discountNodeId");
+  const { collections, discounts, discountsError } = useLoaderData();
+  const [activeTab, setActiveTab] = useState("all");
+
   const collectionTitleMap = useMemo(
     () =>
       new Map(collections.map((collection) => [collection.id, collection.title])),
     [collections],
   );
-
-  useEffect(() => {
-    const savedCollectionIds = createFetcher.data?.config?.selectedCollectionIds;
-
-    if (Array.isArray(savedCollectionIds)) {
-      setSelectedCollectionIds(savedCollectionIds);
+  const filteredDiscounts = useMemo(() => {
+    if (activeTab === "active") {
+      return discounts.filter((discount) => discount.status === "ACTIVE");
     }
-  }, [createFetcher.data]);
 
-  useEffect(() => {
-    if (createFetcher.data?.ok) {
-      shopify.toast.show("Bundle discount created");
+    if (activeTab === "draft") {
+      return discounts.filter((discount) => discount.status !== "ACTIVE");
     }
-  }, [createFetcher.data?.ok, shopify]);
+
+    return discounts;
+  }, [activeTab, discounts]);
+  const currentAction = actionFetcher.data?.action;
+  const actionFormData = actionFetcher.formData;
+  const actionErrorMessage = [
+    ...(actionFetcher.data?.userErrors || []).map(({ message }) => message),
+    ...(actionFetcher.data?.graphqlErrors || []).map(({ message }) => message),
+  ]
+    .filter(Boolean)
+    .join(" | ");
 
   useEffect(() => {
-    if (toggleFetcher.data?.ok) {
+    if (!actionFetcher.data?.ok) {
+      return;
+    }
+
+    if (currentAction === "toggle-status") {
       shopify.toast.show(
-        toggleFetcher.data?.nextStatus === "disable"
+        actionFetcher.data?.nextStatus === "disable"
           ? "Bundle discount disabled"
           : "Bundle discount enabled",
       );
+      return;
     }
-  }, [shopify, toggleFetcher.data]);
 
-  const selectedCollectionTitles = useMemo(() => {
-    const selectedIds = new Set(selectedCollectionIds);
-
-    return collections
-      .filter((collection) => selectedIds.has(collection.id))
-      .map((collection) => collection.title);
-  }, [collections, selectedCollectionIds]);
-  const latestResponse = toggleFetcher.data || createFetcher.data;
+    if (currentAction === "delete") {
+      shopify.toast.show("Bundle discount deleted");
+    }
+  }, [actionFetcher.data, currentAction, shopify]);
 
   return (
-    <s-page heading="Bundle discount">
-      <s-section heading="Create automatic bundle discount">
-        <createFetcher.Form method="post">
-          <s-stack direction="block" gap="base">
-            <input type="hidden" name="intent" value="create" />
-            <s-text-field
-              label="Discount title"
-              name="title"
-              defaultValue="Bundle Discount"
-            />
-            <s-text-field
-              label="Bundle 2 fixed price"
-              name="bundle2Price"
-              type="number"
-              defaultValue="799"
-            />
-            <s-text-field
-              label="Bundle 3 fixed price"
-              name="bundle3Price"
-              type="number"
-              defaultValue="999"
-            />
-            {/* s-choice-list manages UI state, so hidden inputs carry the
-                selected collection IDs through the actual form POST. */}
-            {selectedCollectionIds.map((collectionId) => (
-              <input
-                key={collectionId}
-                type="hidden"
-                name="selectedCollectionIds"
-                value={collectionId}
-              />
-            ))}
-            {collections.length > 0 ? (
-              <s-choice-list
-                label="Eligible collections"
-                details="Leave all unchecked to apply this bundle to every product."
-                multiple
-                name="selectedCollectionIdsUi"
-                values={selectedCollectionIds}
-                onInput={(event) =>
-                  setSelectedCollectionIds([...event.currentTarget.values])
-                }
-              >
-                {collections.map((collection) => (
-                  <s-choice
-                    key={collection.id}
-                    value={collection.id}
-                    details={collection.handle ? `/${collection.handle}` : ""}
-                  >
-                    {collection.title}
-                  </s-choice>
-                ))}
-              </s-choice-list>
-            ) : (
-              <s-paragraph>
-                No collections found. If you leave this empty, the discount will
-                apply to all products.
-              </s-paragraph>
-            )}
-            {selectedCollectionTitles.length > 0 && (
-              <s-paragraph>
-                Selected collections: {selectedCollectionTitles.join(", ")}
-              </s-paragraph>
-            )}
-            <s-text-field
-              label="Discount message"
-              name="message"
-              defaultValue="Bundle Discount Applied"
-            />
-            <s-button type="submit" variant="primary" loading={isSaving}>
-              Create discount
-            </s-button>
-          </s-stack>
-        </createFetcher.Form>
-      </s-section>
+    <s-page>
+      <div style={{ display: "grid", gap: "1.5rem" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "1rem",
+            flexWrap: "wrap",
+          }}
+        >
+          <h1 style={{ margin: 0, fontSize: "1.6rem", fontWeight: 700 }}>Bundles</h1>
+          <button
+            type="button"
+            onClick={() => navigate("new")}
+            style={{
+              border: "1px solid #2b2b2b",
+              background: "#333333",
+              color: "#ffffff",
+              borderRadius: "0.65rem",
+              padding: "0.75rem 1rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1)",
+            }}
+          >
+            Create new bundles
+          </button>
+        </div>
 
-      <s-section heading="Saved bundle discounts">
+        {actionErrorMessage ? (
+          <s-banner tone="critical">
+            <s-paragraph>{actionErrorMessage}</s-paragraph>
+          </s-banner>
+        ) : null}
+
         {discountsError ? (
           <s-paragraph>
             Saved discounts could not be loaded: {discountsError}
           </s-paragraph>
-        ) : discounts.length > 0 ? (
-          <s-stack direction="block" gap="base">
-            {discounts.map((discount) => {
-              const isActive = discount.status === "ACTIVE";
-              const isToggling =
-                toggleFetcher.state !== "idle" &&
-                togglingDiscountNodeId === discount.nodeId;
-              const discountCollectionTitles = discount.config.selectedCollectionIds
-                .map((collectionId) => collectionTitleMap.get(collectionId) || collectionId);
-
-              return (
-                <s-box
-                  key={discount.nodeId}
-                  padding="base"
-                  borderWidth="base"
-                  borderRadius="base"
-                  background="subdued"
-                >
-                  <s-stack direction="block" gap="tight">
-                    <s-heading>{discount.title}</s-heading>
-                    <s-paragraph>Status: {discount.status}</s-paragraph>
-                    <s-paragraph>
-                      Bundle prices: 2 for {discount.config.bundle2Price}, 3 for{" "}
-                      {discount.config.bundle3Price}
-                    </s-paragraph>
-                    <s-paragraph>
-                      Collections:{" "}
-                      {discountCollectionTitles.length > 0
-                        ? discountCollectionTitles.join(", ")
-                        : "All products"}
-                    </s-paragraph>
-                    <s-paragraph>Message: {discount.config.message}</s-paragraph>
-                    <s-paragraph>Starts at: {discount.startsAt}</s-paragraph>
-                    <s-paragraph>
-                      Ends at: {discount.endsAt || "No end date"}
-                    </s-paragraph>
-                    <s-paragraph>Discount ID: {discount.discountId}</s-paragraph>
-                    <toggleFetcher.Form method="post">
-                      <input type="hidden" name="intent" value="toggle-status" />
-                      <input
-                        type="hidden"
-                        name="discountNodeId"
-                        value={discount.nodeId}
-                      />
-                      <input
-                        type="hidden"
-                        name="nextStatus"
-                        value={isActive ? "disable" : "enable"}
-                      />
-                      <s-button type="submit" variant="secondary" loading={isToggling}>
-                        {isActive ? "Disable" : "Enable"}
-                      </s-button>
-                    </toggleFetcher.Form>
-                  </s-stack>
-                </s-box>
-              );
-            })}
-          </s-stack>
         ) : (
-          <s-paragraph>
-            No saved bundle discounts yet. Create one above and it will appear
-            here with its current status and configuration.
-          </s-paragraph>
+          <div style={panelStyle}>
+            <div style={toolbarStyle}>
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                {[
+                  { key: "all", label: "All" },
+                  { key: "active", label: "Active" },
+                  { key: "draft", label: "Draft" },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveTab(tab.key)}
+                    style={{
+                      ...tabButtonStyle,
+                      background: activeTab === tab.key ? "#f1f1f1" : "transparent",
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ overflowX: "auto" }}>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  minWidth: "920px",
+                }}
+              >
+                <thead>
+                  <tr>
+                    {["", "Name", "Discount", "Status", "Type", ""].map(
+                      (heading, index) => (
+                        <th key={`${heading}-${index}`} style={headerCellStyle}>
+                          {heading === "" ? (
+                            index === 0 ? (
+                              <input type="checkbox" disabled />
+                            ) : null
+                          ) : (
+                            heading
+                          )}
+                        </th>
+                      ),
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredDiscounts.length > 0 ? (
+                    filteredDiscounts.map((discount) => {
+                      const isActive = discount.status === "ACTIVE";
+                      const targetedNodeId = String(
+                        actionFormData?.get("discountNodeId") || "",
+                      );
+                      const isWorkingOnThisDiscount =
+                        actionFetcher.state !== "idle" &&
+                        targetedNodeId === discount.nodeId;
+                      const discountCollectionTitles =
+                        discount.config.selectedCollectionIds.map(
+                          (collectionId) =>
+                            collectionTitleMap.get(collectionId) || collectionId,
+                        );
+                      const sortedTiers = [...discount.config.bundleTiers].sort(
+                        (left, right) => left.quantity - right.quantity,
+                      );
+                      const leadTier = sortedTiers[0];
+                      const discountLabel = leadTier
+                        ? `Set price Rs. ${leadTier.price}`
+                        : "No pricing";
+                      const typeLabel =
+                        discountCollectionTitles.length > 0
+                          ? "Mix and match"
+                          : "Store-wide";
+
+                      return (
+                        <tr key={discount.nodeId}>
+                          <td style={bodyCellStyle}>
+                            <input type="checkbox" />
+                          </td>
+                          <td style={bodyCellStyle}>{discount.title}</td>
+                          <td style={bodyCellStyle}>{discountLabel}</td>
+                          <td style={bodyCellStyle}>
+                            <span
+                              style={{
+                                ...statusPillStyle,
+                                background: isActive ? "#b8f7c4" : "#eceff3",
+                                color: isActive ? "#177a34" : "#64748b",
+                              }}
+                            >
+                              {isActive ? "Active" : "Draft"}
+                            </span>
+                          </td>
+                          <td style={bodyCellStyle}>{typeLabel}</td>
+                          <td style={{ ...bodyCellStyle, textAlign: "right" }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "flex-end",
+                                gap: "0.45rem",
+                              }}
+                            >
+                              <button
+                                type="button"
+                                style={rowIconButtonStyle}
+                                onClick={() =>
+                                  navigate(`edit/${encodeURIComponent(discount.nodeId)}`)
+                                }
+                              >
+                                Edit
+                              </button>
+                              <actionFetcher.Form method="post">
+                                <input
+                                  type="hidden"
+                                  name="intent"
+                                  value="toggle-status"
+                                />
+                                <input
+                                  type="hidden"
+                                  name="discountNodeId"
+                                  value={discount.nodeId}
+                                />
+                                <input
+                                  type="hidden"
+                                  name="nextStatus"
+                                  value={isActive ? "disable" : "enable"}
+                                />
+                                <button
+                                  type="submit"
+                                  style={rowIconButtonStyle}
+                                  disabled={
+                                    isWorkingOnThisDiscount &&
+                                    currentAction === "toggle-status"
+                                  }
+                                >
+                                  {isActive ? "Deactivate" : "Activate"}
+                                </button>
+                              </actionFetcher.Form>
+                              <actionFetcher.Form method="post">
+                                <input type="hidden" name="intent" value="delete" />
+                                <input
+                                  type="hidden"
+                                  name="discountNodeId"
+                                  value={discount.nodeId}
+                                />
+                                <button
+                                  type="submit"
+                                  style={rowIconButtonStyle}
+                                  disabled={
+                                    isWorkingOnThisDiscount &&
+                                    currentAction === "delete"
+                                  }
+                                >
+                                  Delete
+                                </button>
+                              </actionFetcher.Form>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={6} style={emptyStateCellStyle}>
+                        No bundle discounts found in this tab.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={pagerWrapStyle}>
+              <button type="button" disabled style={pagerButtonStyle}>
+                {"<"}
+              </button>
+              <span style={{ color: "#666", fontSize: "1.05rem" }}>
+                Showing page 1 of 1
+              </span>
+              <button type="button" disabled style={pagerButtonStyle}>
+                {">"}
+              </button>
+            </div>
+          </div>
         )}
-      </s-section>
-
-      {latestResponse && (
-        <s-section heading={latestResponse.ok ? "Response" : "GraphQL response"}>
-          <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>
-            <code>{JSON.stringify(latestResponse, null, 2)}</code>
-          </pre>
-        </s-section>
-      )}
-
-      <s-section slot="aside" heading="Runtime behavior">
-        <s-paragraph>
-          Function binding: {functionHandle}
-        </s-paragraph>
-        <s-paragraph>
-          Shopify triggers this automatically when a cart or checkout changes.
-          The app page creates the discount config once; buyers do not need to
-          keep this Remix route open.
-        </s-paragraph>
-      </s-section>
+      </div>
     </s-page>
   );
 }
 
-function parseCollectionIds(value) {
-  const rawValues = Array.isArray(value) ? value : [value];
-  const invalid = [];
-  const ids = rawValues
-    .flatMap((entry) => String(entry || "").split(/[\n,]+/))
-    .map((collectionId) => collectionId.trim())
-    .filter(Boolean)
-    .map((collectionId) => normalizeCollectionId(collectionId))
-    .filter((result) => {
-      if (!result.valid) {
-        invalid.push(result.input);
-      }
+const panelStyle = {
+  border: "1px solid #d7dbe0",
+  borderRadius: "1rem",
+  overflow: "hidden",
+  background: "#ffffff",
+  boxShadow: "0 1px 3px rgba(15, 23, 42, 0.08)",
+};
 
-      return result.valid;
-    })
-    .map((result) => result.id);
+const toolbarStyle = {
+  padding: "0.7rem 0.8rem",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "1rem",
+  borderBottom: "1px solid #e5e7eb",
+  flexWrap: "wrap",
+};
 
-  return { ids, invalid };
-}
+const tabButtonStyle = {
+  border: "none",
+  color: "#444",
+  borderRadius: "0.7rem",
+  padding: "0.6rem 0.9rem",
+  fontWeight: 600,
+  cursor: "pointer",
+};
 
-function normalizeCollectionId(value) {
-  // Accept numeric IDs, correct GIDs, and the common mistyped
-  // gid:shopify/... form so existing merchant input can be recovered.
-  if (/^\d+$/.test(value)) {
-    return { valid: true, id: `gid://shopify/Collection/${value}` };
-  }
+const headerCellStyle = {
+  textAlign: "left",
+  padding: "0.9rem 0.9rem",
+  fontSize: "0.9rem",
+  fontWeight: 700,
+  color: "#666",
+  borderBottom: "1px solid #e5e7eb",
+  whiteSpace: "nowrap",
+};
 
-  if (/^gid:\/\/shopify\/Collection\/\d+$/.test(value)) {
-    return { valid: true, id: value };
-  }
+const bodyCellStyle = {
+  padding: "0.85rem 0.9rem",
+  borderBottom: "1px solid #e5e7eb",
+  color: "#2c2c2c",
+  fontSize: "0.92rem",
+};
 
-  if (/^gid:shopify\/Collection\/\d+$/.test(value)) {
-    return {
-      valid: true,
-      id: value.replace("gid:shopify/", "gid://shopify/"),
-    };
-  }
+const statusPillStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: "999px",
+  padding: "0.28rem 0.65rem",
+  fontSize: "0.85rem",
+};
 
-  return { valid: false, input: value };
-}
+const rowIconButtonStyle = {
+  borderRadius: "0.6rem",
+  border: "1px solid #d1d5db",
+  background: "#ffffff",
+  cursor: "pointer",
+  fontSize: "0.9rem",
+  padding: "0.45rem 0.7rem",
+  minHeight: "2rem",
+};
 
-function parseBundleConfig(value) {
-  const fallback = {
-    bundle2Price: 799,
-    bundle3Price: 999,
-    selectedCollectionIds: [],
-    message: "Bundle Discount Applied",
-  };
+const emptyStateCellStyle = {
+  padding: "2rem 1rem",
+  textAlign: "center",
+  color: "#6b7280",
+};
 
-  if (!value) {
-    return fallback;
-  }
+const pagerWrapStyle = {
+  padding: "1.8rem 1rem",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  gap: "1rem",
+};
 
-  try {
-    const config = JSON.parse(value);
-
-    return {
-      bundle2Price: toPositiveNumber(config.bundle2Price, fallback.bundle2Price),
-      bundle3Price: toPositiveNumber(config.bundle3Price, fallback.bundle3Price),
-      selectedCollectionIds: Array.isArray(config.selectedCollectionIds)
-        ? config.selectedCollectionIds.filter((id) => typeof id === "string")
-        : [],
-      message:
-        typeof config.message === "string" && config.message.trim()
-          ? config.message.trim()
-          : fallback.message,
-    };
-  } catch {
-    return fallback;
-  }
-}
-
-function toPositiveNumber(value, fallback) {
-  const numberValue = Number(value);
-
-  return Number.isFinite(numberValue) && numberValue > 0
-    ? numberValue
-    : fallback;
-}
-
-function toErrorMessage(error) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return String(error);
-}
+const pagerButtonStyle = {
+  width: "2rem",
+  height: "2rem",
+  borderRadius: "0.6rem",
+  border: "1px solid #e5e7eb",
+  background: "#efefef",
+  color: "#6b7280",
+  fontSize: "1.2rem",
+  opacity: 0.45,
+};

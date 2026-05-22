@@ -7,10 +7,10 @@
         "lines": [
           {
             "id": "gid://shopify/CartLine/0",
-            "quantity": 2,
+            "quantity": 1,
             "cost": {
               "amountPerQuantity": {
-                "amount": "450.00"
+                "amount": "300.00"
               }
             },
             "merchandise": {
@@ -25,7 +25,7 @@
             "quantity": 1,
             "cost": {
               "amountPerQuantity": {
-                "amount": "300.00"
+                "amount": "250.00"
               }
             },
             "merchandise": {
@@ -40,13 +40,28 @@
             "quantity": 1,
             "cost": {
               "amountPerQuantity": {
-                "amount": "999.00"
+                "amount": "200.00"
               }
             },
             "merchandise": {
               "id": "gid://shopify/ProductVariant/3",
               "product": {
-                "inSelectedCollections": false
+                "inSelectedCollections": true
+              }
+            }
+          },
+          {
+            "id": "gid://shopify/CartLine/3",
+            "quantity": 1,
+            "cost": {
+              "amountPerQuantity": {
+                "amount": "150.00"
+              }
+            },
+            "merchandise": {
+              "id": "gid://shopify/ProductVariant/4",
+              "product": {
+                "inSelectedCollections": true
               }
             }
           }
@@ -55,7 +70,7 @@
       "discount": {
         "discountClasses": ["ORDER"],
         "metafield": {
-          "value": "{\"bundleTiers\":[{\"quantity\":2,\"price\":799},{\"quantity\":3,\"price\":999}],\"selectedCollectionIds\":[\"gid://shopify/Collection/1\"],\"message\":\"Bundle Discount Applied\"}"
+          "value": "{\"bundleTiers\":[{\"quantity\":2,\"price\":430},{\"quantity\":4,\"price\":700}],\"selectedCollectionIds\":[\"gid://shopify/Collection/1\"],\"message\":\"4-item bundle applied\"}"
         }
       }
     },
@@ -65,17 +80,17 @@
           "orderDiscountsAdd": {
             "candidates": [
               {
-                "message": "Bundle Discount Applied",
+                "message": "4-item bundle applied",
                 "targets": [
                   {
                     "orderSubtotal": {
-                      "excludedCartLineIds": ["gid://shopify/CartLine/2"]
+                      "excludedCartLineIds": []
                     }
                   }
                 ],
                 "value": {
                   "fixedAmount": {
-                    "amount": "201.00"
+                    "amount": "200.00"
                   }
                 }
               }

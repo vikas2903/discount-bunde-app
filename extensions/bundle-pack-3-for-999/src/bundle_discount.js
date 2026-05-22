@@ -2,10 +2,13 @@ import {OrderDiscountSelectionStrategy} from '../generated/api';
 
 export function runBundleDiscount(input, configValue) {
   const config = parseBundleConfig(configValue);
-  const bundleRules = [
-    {quantity: 3, fixedBundlePrice: config.bundle3Price},
-    {quantity: 2, fixedBundlePrice: config.bundle2Price},
-  ].filter((rule) => rule.fixedBundlePrice > 0);
+  const bundleRules = [...config.bundleTiers]
+    .map((tier) => ({
+      quantity: tier.quantity,
+      fixedBundlePrice: tier.price,
+    }))
+    .filter((rule) => rule.quantity >= 2 && rule.fixedBundlePrice > 0)
+    .sort((left, right) => right.quantity - left.quantity);
 
   if (!bundleRules.length) {
     return {operations: []};
@@ -120,8 +123,7 @@ export function runBundleDiscount(input, configValue) {
 
 function parseBundleConfig(value) {
   const fallback = {
-    bundle2Price: 799,
-    bundle3Price: 999,
+    bundleTiers: [],
     selectedCollectionIds: [],
     message: 'Bundle Discount Applied',
   };
@@ -132,10 +134,10 @@ function parseBundleConfig(value) {
 
   try {
     const config = JSON.parse(value);
+    const bundleTiers = normalizeBundleTiers(config.bundleTiers, []);
 
     return {
-      bundle2Price: toPositiveNumber(config.bundle2Price, fallback.bundle2Price),
-      bundle3Price: toPositiveNumber(config.bundle3Price, fallback.bundle3Price),
+      bundleTiers,
       selectedCollectionIds: Array.isArray(config.selectedCollectionIds)
         ? config.selectedCollectionIds.filter((id) => typeof id === 'string')
         : [],
@@ -155,4 +157,34 @@ function toPositiveNumber(value, fallback) {
   return Number.isFinite(numberValue) && numberValue > 0
     ? numberValue
     : fallback;
+}
+
+function toPositiveInteger(value, fallback) {
+  const numberValue = Number(value);
+
+  return Number.isInteger(numberValue) && numberValue > 0
+    ? numberValue
+    : fallback;
+}
+
+function normalizeBundleTiers(value, fallback) {
+  const fallbackTiers = Array.isArray(fallback) ? fallback : [];
+  const seenQuantities = new Set();
+  const tiers = (Array.isArray(value) ? value : [])
+    .map((tier) => ({
+      quantity: toPositiveInteger(tier?.quantity, 0),
+      price: toPositiveNumber(tier?.price, 0),
+    }))
+    .filter((tier) => tier.quantity >= 2 && tier.price > 0)
+    .sort((left, right) => left.quantity - right.quantity)
+    .filter((tier) => {
+      if (seenQuantities.has(tier.quantity)) {
+        return false;
+      }
+
+      seenQuantities.add(tier.quantity);
+      return true;
+    });
+
+  return tiers.length > 0 ? tiers : fallbackTiers;
 }
