@@ -21,7 +21,9 @@ export async function checkSubscription(billing) {
 }
 
 export async function requireSubscription(billing, request) {
-  const returnUrl = `${new URL(request.url).origin}/app`;
+  // Return to the billing route first so the app can confirm the purchase
+  // and then redirect the merchant into the embedded dashboard.
+  const returnUrl = `${new URL(request.url).origin}/app/billing`;
 
   // Send unpaid merchants straight to Shopify's hosted billing approval page.
   const result = await billing.require({

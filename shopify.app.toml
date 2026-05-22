@@ -2,7 +2,7 @@
 
 client_id = "988e16c7b80986590baef5b8486af495"
 name = "Discount Bundle App"
-application_url = "https://example.com"
+application_url = "https://discount-bunde-app.onrender.com"
 embedded = true
 
 [build]
@@ -24,7 +24,7 @@ api_version = "2026-07"
 scopes = "read_products,write_products,read_discounts,write_discounts,read_themes,write_themes,write_metaobjects,write_metaobject_definitions"
 
 [auth]
-redirect_urls = [ "https://example.com/auth/callback" ]
+redirect_urls = [ "https://discount-bunde-app.onrender.com/auth/callback" ]
 
 [product.metafields.app.demo_info]
 type = "single_line_text_field"
