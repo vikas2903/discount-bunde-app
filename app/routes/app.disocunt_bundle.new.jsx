@@ -21,8 +21,8 @@ import {
 import { requireSubscription } from "../utils/billing.server";
 
 export const loader = async ({ request }) => {
-  const { admin, redirect } = await authenticate.admin(request);
-  await requireSubscription(admin, redirect);
+  const { admin, billing } = await authenticate.admin(request);
+  await requireSubscription(billing, request);
   const { collections, graphqlErrors } = await getBundleCollections(admin);
 
   return {
@@ -32,8 +32,8 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { admin, redirect } = await authenticate.admin(request);
-  await requireSubscription(admin, redirect);
+  const { admin, billing, redirect } = await authenticate.admin(request);
+  await requireSubscription(billing, request);
   const formData = await request.formData();
   const { config, invalidCollectionIds } = buildBundleConfig(formData);
   const validationErrors = validateBundleConfig(

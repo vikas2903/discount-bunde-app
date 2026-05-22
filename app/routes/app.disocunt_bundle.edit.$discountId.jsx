@@ -24,8 +24,8 @@ import {
 import { requireSubscription } from "../utils/billing.server";
 
 export const loader = async ({ request, params }) => {
-  const { admin, redirect } = await authenticate.admin(request);
-  await requireSubscription(admin, redirect);
+  const { admin, billing } = await authenticate.admin(request);
+  await requireSubscription(billing, request);
   const [collectionsResult, discountResult] = await Promise.all([
     getBundleCollections(admin),
     getBundleDiscount(admin, params.discountId),
@@ -46,8 +46,8 @@ export const loader = async ({ request, params }) => {
 };
 
 export const action = async ({ request, params }) => {
-  const { admin, redirect } = await authenticate.admin(request);
-  await requireSubscription(admin, redirect);
+  const { admin, billing, redirect } = await authenticate.admin(request);
+  await requireSubscription(billing, request);
   const formData = await request.formData();
   const intent = String(formData.get("intent") || "");
 

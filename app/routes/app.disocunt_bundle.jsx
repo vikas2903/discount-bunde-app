@@ -12,8 +12,8 @@ import { toErrorMessage } from "../utils/bundle-discount";
 import { requireSubscription } from "../utils/billing.server";
 
 export const loader = async ({ request }) => {
-  const { admin, redirect } = await authenticate.admin(request);
-  await requireSubscription(admin, redirect);
+  const { admin, billing } = await authenticate.admin(request);
+  await requireSubscription(billing, request);
   const [collectionsResult, discountsResult] = await Promise.allSettled([
     getBundleCollections(admin),
     listBundleDiscounts(admin),
@@ -42,8 +42,8 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { admin, redirect } = await authenticate.admin(request);
-  await requireSubscription(admin, redirect);
+  const { admin, billing } = await authenticate.admin(request);
+  await requireSubscription(billing, request);
   const formData = await request.formData();
   const intent = String(formData.get("intent") || "");
 

@@ -6,17 +6,8 @@ import { authenticate } from "../shopify.server";
 import { checkSubscription } from "../utils/billing.server";
 
 export const loader = async ({ request }) => {
-  const { admin, redirect } = await authenticate.admin(request);
-  const url = new URL(request.url);
-  const subscription = await checkSubscription(admin);
-
-  if (!subscription && url.pathname !== "/app/billing") {
-    throw redirect("/app/billing");
-  }
-
-  if (subscription && url.pathname === "/app/billing") {
-    throw redirect("/app");
-  }
+  const { billing } = await authenticate.admin(request);
+  const subscription = await checkSubscription(billing);
 
   // eslint-disable-next-line no-undef
   return {
