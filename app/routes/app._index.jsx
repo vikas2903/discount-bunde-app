@@ -1,15 +1,16 @@
 import { useMemo } from "react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
+import { useLoaderData, useNavigate } from "react-router";
 import { authenticate } from "../shopify.server";
 import { listBundleDiscounts } from "../services/bundle-discount.server";
 import { toErrorMessage } from "../utils/bundle-discount";
-import { useLoaderData, useNavigate } from "react-router";
 import { requireSubscription } from "../utils/billing.server";
+
+const YOUTUBE_GUIDE_URL = "";
 
 export const loader = async ({ request }) => {
   const { admin, billing, session } = await authenticate.admin(request);
-  // Dashboard access is subscription-only, so unpaid shops are sent to Shopify billing first.
-  const subscription = await requireSubscription(billing, request, session.shop);
+  await requireSubscription(billing, request, session.shop);
 
   try {
     const { discounts, graphqlErrors } = await listBundleDiscounts(admin);
@@ -18,106 +19,59 @@ export const loader = async ({ request }) => {
       shop: session.shop,
       discounts,
       loadError: graphqlErrors.map(({ message }) => message).join(" | ") || null,
+      youtubeGuideUrl: YOUTUBE_GUIDE_URL,
     };
   } catch (error) {
     return {
       shop: session.shop,
       discounts: [],
-      subscription: {
-        id: subscription.id,
-        status: subscription.status,
-        trialDays: subscription.trialDays,
-        currentPeriodEnd: subscription.currentPeriodEnd,
-      },
       loadError: toErrorMessage(error),
+      youtubeGuideUrl: YOUTUBE_GUIDE_URL,
     };
   }
 };
 
-export default function Index() {
+export default function AppIndex() {
   const navigate = useNavigate();
-  const { shop, discounts, loadError } = useLoaderData();
-
-  const statusSummary = useMemo(() => {
+  const { shop, discounts, loadError, youtubeGuideUrl } = useLoaderData();
+  const summary = useMemo(() => {
     const active = discounts.filter((discount) => discount.status === "ACTIVE").length;
-    const inactive = discounts.filter((discount) => discount.status !== "ACTIVE").length;
 
     return {
       total: discounts.length,
       active,
-      inactive,
+      inactive: discounts.length - active,
     };
   }, [discounts]);
+  const embedUrl = toYoutubeEmbedUrl(youtubeGuideUrl);
 
   return (
-    <s-page heading="Dashboard">
-      <s-button
-        slot="primary-action"
-        variant="primary"
-        onClick={() => navigate("/app/disocunt_bundle")}
-      >
-        View bundle list
-      </s-button>
+    <s-page heading="Discount dashboard">
+      <div style={pageStyle}>
+        <section style={welcomeCardStyle}>
+          <div style={{ display: "grid", gap: "0.5rem" }}>
+            <div style={eyebrowStyle}>Welcome</div>
+            <h2 style={headingStyle}>Create discounts in 3 simple steps</h2>
+            <p style={copyStyle}>
+              Choose a discount type, set your offer, and activate it for {shop}.
+            </p>
+          </div>
 
-      <div style={{ display: "grid", gap: "0.9rem" }}>
-        <div
-          style={{
-            background:
-              "linear-gradient(135deg, #111111 0%, #1f1f1f 55%, #3b3b3b 100%)",
-            borderRadius: "1.1rem",
-            padding: "1rem",
-            color: "#ffffff",
-            boxShadow: "0 18px 40px rgba(0, 0, 0, 0.18)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              gap: "1rem",
-              flexWrap: "wrap",
-            }}
-          >
-            <div style={{ display: "grid", gap: "0.5rem" }}>
-              <div style={heroBadgeStyle}>
-                Bundle dashboard
-              </div>
-              <h2 style={{ margin: 0, fontSize: "1.35rem", fontWeight: 800 }}>
-                Bundle discount status for {shop}
-              </h2>
-              <p
-                style={{
-                  margin: 0,
-                  maxWidth: "48rem",
-                  color: "rgba(255,255,255,0.9)",
-                  fontSize: "0.86rem",
-                }}
-              >
-                Track how many bundle discounts are live right now and quickly
-                review inactive campaigns from one colorful summary view.
-              </p>
+          <div style={statGridStyle}>
+            <div style={statCardStyle}>
+              <div style={statLabelStyle}>Total discounts</div>
+              <div style={statValueStyle}>{summary.total}</div>
             </div>
-
-            <div
-              style={{
-                minWidth: "125px",
-                background: "rgba(255,255,255,0.08)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                borderRadius: "0.9rem",
-                padding: "0.8rem 0.9rem",
-                backdropFilter: "blur(8px)",
-              }}
-            >
-              <div style={{ fontSize: "0.76rem", color: "rgba(255,255,255,0.88)" }}>
-                Active now
-              </div>
-              <div style={{ fontSize: "1.6rem", fontWeight: 800, lineHeight: 1.1 }}>
-                {statusSummary.active}
-              </div>
+            <div style={statCardStyle}>
+              <div style={statLabelStyle}>Active</div>
+              <div style={statValueStyle}>{summary.active}</div>
+            </div>
+            <div style={statCardStyle}>
+              <div style={statLabelStyle}>Inactive</div>
+              <div style={statValueStyle}>{summary.inactive}</div>
             </div>
           </div>
-        </div>
+        </section>
 
         {loadError ? (
           <s-banner tone="critical">
@@ -125,111 +79,406 @@ export default function Index() {
           </s-banner>
         ) : null}
 
-        <div
-          style={{
-            display: "grid",
-            gap: "0.8rem",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          }}
-        >
-          <div style={buildStatCardStyle("#ffffff", "#111111", "#111111")}>
-            <div style={statBadgeStyle}>Overview</div>
-            <div style={statLabelStyle}>Total discounts</div>
-            <div style={statValueStyle}>{statusSummary.total}</div>
-            <div style={statHintStyle}>All bundle campaigns created for this store.</div>
+        <section style={sectionCardStyle}>
+          <div style={sectionHeaderStyle}>
+            <div>
+              <div style={eyebrowStyle}>Start here</div>
+              <h3 style={sectionTitleStyle}>Choose what you want to create</h3>
+            </div>
           </div>
 
-          <div style={buildStatCardStyle("#f4f4f4", "#111111", "#111111")}>
-            <div style={statBadgeStyle}>Live status</div>
-            <div style={statLabelStyle}>Active discounts</div>
-            <div style={statValueStyle}>{statusSummary.active}</div>
-            <div style={statHintStyle}>Currently running and visible to shoppers.</div>
+          <div style={actionGridStyle}>
+            <button
+              type="button"
+              style={primaryCardStyle}
+              onClick={() => navigate("/app/disocunt_bundle/new")}
+            >
+              <div style={cardTitleStyle}>Bundle discount</div>
+              <div style={cardCopyStyle}>
+                Create mix-and-match bundle offers with fixed pricing.
+              </div>
+            </button>
+
+            <button
+              type="button"
+              style={secondaryCardStyle}
+              onClick={() => navigate("/app/volume_discounts")}
+            >
+              <div style={cardTitleStyle}>Volume discount</div>
+              <div style={cardCopyStyle}>
+                Create quantity tiers like 2 items = 5% off, 3 items = 15% off.
+              </div>
+            </button>
+
+            <button
+              type="button"
+              style={secondaryCardStyle}
+              onClick={() => navigate("/app/flatoff_disocunt")}
+            >
+              <div style={cardTitleStyle}>Flat-off discount</div>
+              <div style={cardCopyStyle}>
+                Create a simple percentage discount for eligible products.
+              </div>
+            </button>
+          </div>
+        </section>
+
+        <section style={twoColumnGridStyle}>
+          <div style={sectionCardStyle}>
+            <div style={sectionHeaderStyle}>
+              <div>
+                <div style={eyebrowStyle}>How to use</div>
+                <h3 style={sectionTitleStyle}>Simple merchant flow</h3>
+              </div>
+            </div>
+
+            <div style={stepsWrapStyle}>
+              <div style={stepRowStyle}>
+                <div style={stepNumberStyle}>1</div>
+                <div>
+                  <div style={stepTitleStyle}>Open a discount type</div>
+                  <div style={stepCopyStyle}>
+                    Choose Bundle, Volume, or Flat-off from the buttons above.
+                  </div>
+                </div>
+              </div>
+
+              <div style={stepRowStyle}>
+                <div style={stepNumberStyle}>2</div>
+                <div>
+                  <div style={stepTitleStyle}>Set your offer</div>
+                  <div style={stepCopyStyle}>
+                    Add quantity, price, or percentage based on your campaign requirement.
+                  </div>
+                </div>
+              </div>
+
+              <div style={stepRowStyle}>
+                <div style={stepNumberStyle}>3</div>
+                <div>
+                  <div style={stepTitleStyle}>Activate the discount</div>
+                  <div style={stepCopyStyle}>
+                    Save it, review it in the dashboard, then activate when ready.
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div style={buildStatCardStyle("#ebebeb", "#111111", "#111111")}>
-            <div style={statBadgeStyle}>Needs attention</div>
-            <div style={statLabelStyle}>Draft / inactive</div>
-            <div style={statValueStyle}>{statusSummary.inactive}</div>
-            <div style={statHintStyle}>Paused or not yet activated bundle discounts.</div>
-          </div>
-        </div>
+          <div style={sectionCardStyle}>
+            <div style={sectionHeaderStyle}>
+              <div>
+                <div style={eyebrowStyle}>Video guide</div>
+                <h3 style={sectionTitleStyle}>Help merchants with YouTube</h3>
+              </div>
+            </div>
 
-        <div
-          style={{
-            padding: "0.9rem 1rem",
-            border: "1px solid rgba(17,17,17,0.08)",
-            borderRadius: "0.9rem",
-            background: "#f7f7f7",
-            color: "#222222",
-            fontSize: "0.92rem",
-          }}
-        >
-          Support communication: email us at{" "}
-          <a
-            href="mailto:vikasprasad2903@gmail.com"
-            style={{ color: "#111111", fontWeight: 700, textDecoration: "none" }}
-          >
-            vikasprasad2903@gmail.com
-          </a>
-        </div>
+            {embedUrl ? (
+              <div style={videoWrapStyle}>
+                <iframe
+                  title="How to use this app"
+                  src={embedUrl}
+                  style={iframeStyle}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            ) : (
+              <div style={videoPlaceholderStyle}>
+                <div style={stepTitleStyle}>No video added yet</div>
+                <div style={stepCopyStyle}>
+                  Add your YouTube link in [app._index.jsx](C:/Users/dell/Desktop/discount-bundle/discount-bundle-app/app/routes/app._index.jsx:8)
+                  by updating `YOUTUBE_GUIDE_URL`.
+                </div>
+                <div style={codeStyle}>
+                  Example: `https://www.youtube.com/watch?v=YOUR_VIDEO_ID`
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section style={sectionCardStyle}>
+          <div style={sectionHeaderStyle}>
+            <div>
+              <div style={eyebrowStyle}>Manage</div>
+              <h3 style={sectionTitleStyle}>Quick links</h3>
+            </div>
+          </div>
+
+          <div style={quickLinkRowStyle}>
+            <button
+              type="button"
+              style={smallButtonStyle}
+              onClick={() => navigate("/app/disocunt_bundle")}
+            >
+              View bundle discounts
+            </button>
+            <button
+              type="button"
+              style={smallButtonStyle}
+              onClick={() => navigate("/app/volume_discounts")}
+            >
+              View volume discounts
+            </button>
+            <button
+              type="button"
+              style={smallButtonStyle}
+              onClick={() => navigate("/app/billing")}
+            >
+              Plan and billing
+            </button>
+          </div>
+        </section>
       </div>
     </s-page>
   );
 }
 
-function buildStatCardStyle(background, accent, textColor) {
-  return {
-    background,
-    border: `1px solid ${accent}22`,
-    borderRadius: "1rem",
-    padding: "0.95rem",
-    boxShadow: "0 12px 30px rgba(15, 23, 42, 0.06)",
-    display: "grid",
-    gap: "0.4rem",
-    color: textColor,
-  };
+function toYoutubeEmbedUrl(url) {
+  if (!url || typeof url !== "string") {
+    return "";
+  }
+
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  const watchMatch = trimmed.match(/[?&]v=([^&]+)/);
+  if (watchMatch?.[1]) {
+    return `https://www.youtube.com/embed/${watchMatch[1]}`;
+  }
+
+  const shortMatch = trimmed.match(/youtu\.be\/([^?&/]+)/);
+  if (shortMatch?.[1]) {
+    return `https://www.youtube.com/embed/${shortMatch[1]}`;
+  }
+
+  const embedMatch = trimmed.match(/youtube\.com\/embed\/([^?&/]+)/);
+  if (embedMatch?.[1]) {
+    return trimmed;
+  }
+
+  return "";
 }
 
-const heroBadgeStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  width: "fit-content",
-  padding: "0.25rem 0.55rem",
-  borderRadius: "999px",
-  background: "rgba(255,255,255,0.12)",
-  fontSize: "0.72rem",
-  fontWeight: 700,
-  letterSpacing: "0.04em",
-  textTransform: "uppercase",
+const pageStyle = {
+  display: "grid",
+  gap: "1rem",
 };
 
-const statBadgeStyle = {
-  display: "inline-flex",
+const welcomeCardStyle = {
+  display: "grid",
+  gap: "1rem",
+  background: "#ffffff",
+  border: "1px solid #dde3ea",
+  borderRadius: "1rem",
+  padding: "1.1rem",
+  boxShadow: "0 10px 28px rgba(15, 23, 42, 0.05)",
+};
+
+const sectionCardStyle = {
+  display: "grid",
+  gap: "1rem",
+  background: "#ffffff",
+  border: "1px solid #dde3ea",
+  borderRadius: "1rem",
+  padding: "1.1rem",
+  boxShadow: "0 10px 28px rgba(15, 23, 42, 0.05)",
+};
+
+const sectionHeaderStyle = {
+  display: "flex",
+  justifyContent: "space-between",
   alignItems: "center",
-  width: "fit-content",
-  padding: "0.22rem 0.5rem",
-  borderRadius: "999px",
-  background: "rgba(17,17,17,0.08)",
-  fontSize: "0.68rem",
-  fontWeight: 700,
-  letterSpacing: "0.03em",
+  gap: "1rem",
+};
+
+const eyebrowStyle = {
+  fontSize: "0.72rem",
+  fontWeight: 800,
   textTransform: "uppercase",
+  letterSpacing: "0.05em",
+  color: "#2563eb",
+  marginBottom: "0.2rem",
+};
+
+const headingStyle = {
+  margin: 0,
+  fontSize: "1.5rem",
+  fontWeight: 800,
+  color: "#111827",
+};
+
+const sectionTitleStyle = {
+  margin: 0,
+  fontSize: "1.05rem",
+  fontWeight: 800,
+  color: "#111827",
+};
+
+const copyStyle = {
+  margin: 0,
+  fontSize: "0.92rem",
+  lineHeight: 1.6,
+  color: "#4b5563",
+};
+
+const statGridStyle = {
+  display: "grid",
+  gap: "0.8rem",
+  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+};
+
+const statCardStyle = {
+  border: "1px solid #e5e7eb",
+  borderRadius: "0.9rem",
+  padding: "0.85rem",
+  background: "#f8fbff",
+  display: "grid",
+  gap: "0.3rem",
 };
 
 const statLabelStyle = {
-  fontSize: "0.9rem",
+  fontSize: "0.8rem",
+  color: "#6b7280",
   fontWeight: 700,
 };
 
 const statValueStyle = {
-  fontSize: "1.55rem",
+  fontSize: "1.45rem",
   fontWeight: 800,
-  lineHeight: 1.05,
+  color: "#111827",
 };
 
-const statHintStyle = {
-  fontSize: "0.8rem",
-  opacity: 0.7,
+const actionGridStyle = {
+  display: "grid",
+  gap: "0.8rem",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+};
+
+const baseCardStyle = {
+  textAlign: "left",
+  borderRadius: "0.95rem",
+  padding: "1rem",
+  display: "grid",
+  gap: "0.38rem",
+  cursor: "pointer",
+};
+
+const primaryCardStyle = {
+  ...baseCardStyle,
+  border: "1px solid #cfe0ff",
+  background: "#eaf2ff",
+};
+
+const secondaryCardStyle = {
+  ...baseCardStyle,
+  border: "1px solid #e5e7eb",
+  background: "#f9fafb",
+};
+
+const cardTitleStyle = {
+  fontSize: "0.98rem",
+  fontWeight: 800,
+  color: "#111827",
+};
+
+const cardCopyStyle = {
+  fontSize: "0.84rem",
+  lineHeight: 1.55,
+  color: "#4b5563",
+};
+
+const twoColumnGridStyle = {
+  display: "grid",
+  gap: "1rem",
+  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+};
+
+const stepsWrapStyle = {
+  display: "grid",
+  gap: "0.9rem",
+};
+
+const stepRowStyle = {
+  display: "grid",
+  gridTemplateColumns: "42px minmax(0, 1fr)",
+  gap: "0.8rem",
+  alignItems: "start",
+};
+
+const stepNumberStyle = {
+  width: "42px",
+  height: "42px",
+  borderRadius: "999px",
+  background: "#eaf2ff",
+  color: "#1d4ed8",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontWeight: 800,
+};
+
+const stepTitleStyle = {
+  fontSize: "0.95rem",
+  fontWeight: 800,
+  color: "#111827",
+};
+
+const stepCopyStyle = {
+  marginTop: "0.2rem",
+  fontSize: "0.84rem",
+  lineHeight: 1.55,
+  color: "#4b5563",
+};
+
+const videoWrapStyle = {
+  borderRadius: "0.95rem",
+  overflow: "hidden",
+  border: "1px solid #e5e7eb",
+  background: "#000000",
+};
+
+const iframeStyle = {
+  width: "100%",
+  minHeight: "280px",
+  border: 0,
+  display: "block",
+};
+
+const videoPlaceholderStyle = {
+  border: "1px dashed #cbd5e1",
+  borderRadius: "0.95rem",
+  padding: "1rem",
+  background: "#f8fbff",
+  display: "grid",
+  gap: "0.55rem",
+};
+
+const codeStyle = {
+  fontSize: "0.82rem",
+  fontFamily: "monospace",
+  color: "#1e3a8a",
+  background: "#eff6ff",
+  borderRadius: "0.6rem",
+  padding: "0.7rem 0.8rem",
+};
+
+const quickLinkRowStyle = {
+  display: "flex",
+  gap: "0.75rem",
+  flexWrap: "wrap",
+};
+
+const smallButtonStyle = {
+  border: "1px solid #d1d5db",
+  background: "#ffffff",
+  borderRadius: "0.75rem",
+  padding: "0.75rem 0.95rem",
+  fontWeight: 700,
+  cursor: "pointer",
 };
 
 export const headers = (headersArgs) => {

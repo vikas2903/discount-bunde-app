@@ -1,40 +1,18 @@
+import { getBundleCollections } from "./bundle-discount.server";
 import {
-  BUNDLE_METAFIELD_KEY,
-  BUNDLE_METAFIELD_NAMESPACE,
-  DEFAULT_FUNCTION_HANDLE,
-  formatBundleDiscountInput,
-  isBundleConfig,
-  parseBundleConfig,
-} from "../utils/bundle-discount";
+  DEFAULT_VOLUME_FUNCTION_HANDLE,
+  formatVolumeDiscountInput,
+  parseVolumeConfig,
+  VOLUME_METAFIELD_KEY,
+  VOLUME_METAFIELD_NAMESPACE,
+} from "../utils/volume-discount";
 
-export async function getBundleCollections(admin) {
+export { getBundleCollections as getVolumeCollections };
+
+export async function listVolumeDiscounts(admin) {
   const response = await admin.graphql(
     `#graphql
-      query BundleCollections {
-        collections(first: 50) {
-          edges {
-            node {
-              id
-              title
-              handle
-            }
-          }
-        }
-      }`,
-  );
-  const responseJson = await response.json();
-
-  return {
-    collections:
-      responseJson.data?.collections?.edges?.map(({ node }) => node) || [],
-    graphqlErrors: responseJson.errors || [],
-  };
-}
-
-export async function listBundleDiscounts(admin) {
-  const response = await admin.graphql(
-    `#graphql
-      query ExistingBundleDiscounts {
+      query ExistingVolumeDiscounts {
         discountNodes(
           first: 100
           query: "method:automatic type:app"
@@ -45,8 +23,8 @@ export async function listBundleDiscounts(admin) {
             node {
               id
               metafield(
-                namespace: "${BUNDLE_METAFIELD_NAMESPACE}"
-                key: "${BUNDLE_METAFIELD_KEY}"
+                namespace: "${VOLUME_METAFIELD_NAMESPACE}"
+                key: "${VOLUME_METAFIELD_KEY}"
               ) {
                 value
               }
@@ -67,27 +45,39 @@ export async function listBundleDiscounts(admin) {
   const responseJson = await response.json();
 
   return {
-    discounts: parseDiscountNodes(responseJson.data?.discountNodes?.edges),
+    discounts:
+      responseJson.data?.discountNodes?.edges
+        ?.map(({ node }) => {
+          const configValue = node.metafield?.value;
+          const automaticDiscount = node.discount;
+
+          if (!configValue || !automaticDiscount?.discountId) {
+            return null;
+          }
+
+          return {
+            nodeId: automaticDiscount.discountId,
+            adminGraphqlNodeId: node.id,
+            discountId: automaticDiscount.discountId,
+            title: automaticDiscount.title,
+            status: automaticDiscount.status,
+            startsAt: automaticDiscount.startsAt,
+            endsAt: automaticDiscount.endsAt,
+            config: parseVolumeConfig(configValue),
+          };
+        })
+        .filter(Boolean) || [],
     graphqlErrors: responseJson.errors || [],
   };
 }
 
-export async function getBundleDiscount(admin, discountNodeId) {
-  const { discounts, graphqlErrors } = await listBundleDiscounts(admin);
-
-  return {
-    discount: discounts.find((entry) => entry.nodeId === discountNodeId) || null,
-    graphqlErrors,
-  };
-}
-
-export async function createBundleDiscount(
+export async function createVolumeDiscount(
   admin,
   { title, startsAt, endsAt, functionHandle, config },
 ) {
   const response = await admin.graphql(
     `#graphql
-      mutation CreateBundleDiscount($automaticAppDiscount: DiscountAutomaticAppInput!) {
+      mutation CreateVolumeDiscount($automaticAppDiscount: DiscountAutomaticAppInput!) {
         discountAutomaticAppCreate(automaticAppDiscount: $automaticAppDiscount) {
           userErrors {
             field
@@ -104,7 +94,7 @@ export async function createBundleDiscount(
       }`,
     {
       variables: {
-        automaticAppDiscount: formatBundleDiscountInput({
+        automaticAppDiscount: formatVolumeDiscountInput({
           title,
           startsAt,
           endsAt,
@@ -127,13 +117,13 @@ export async function createBundleDiscount(
   };
 }
 
-export async function updateBundleDiscount(
+export async function updateVolumeDiscount(
   admin,
   { id, title, startsAt, endsAt, functionHandle, config },
 ) {
   const response = await admin.graphql(
     `#graphql
-      mutation UpdateBundleDiscount(
+      mutation UpdateVolumeDiscount(
         $id: ID!
         $automaticAppDiscount: DiscountAutomaticAppInput!
       ) {
@@ -157,7 +147,7 @@ export async function updateBundleDiscount(
     {
       variables: {
         id,
-        automaticAppDiscount: formatBundleDiscountInput({
+        automaticAppDiscount: formatVolumeDiscountInput({
           title,
           startsAt,
           endsAt,
@@ -180,14 +170,14 @@ export async function updateBundleDiscount(
   };
 }
 
-export async function toggleBundleDiscountStatus(admin, { id, nextStatus }) {
+export async function toggleVolumeDiscountStatus(admin, { id, nextStatus }) {
   const mutationName =
     nextStatus === "disable"
       ? "discountAutomaticDeactivate"
       : "discountAutomaticActivate";
   const response = await admin.graphql(
     `#graphql
-      mutation ToggleBundleDiscount($id: ID!) {
+      mutation ToggleVolumeDiscount($id: ID!) {
         ${mutationName}(id: $id) {
           automaticDiscountNode {
             automaticDiscount {
@@ -206,9 +196,7 @@ export async function toggleBundleDiscountStatus(admin, { id, nextStatus }) {
           }
         }
       }`,
-    {
-      variables: { id },
-    },
+    { variables: { id } },
   );
   const responseJson = await response.json();
   const payload = responseJson.data?.[mutationName];
@@ -224,10 +212,10 @@ export async function toggleBundleDiscountStatus(admin, { id, nextStatus }) {
   };
 }
 
-export async function deleteBundleDiscount(admin, id) {
+export async function deleteVolumeDiscount(admin, id) {
   const response = await admin.graphql(
     `#graphql
-      mutation DeleteBundleDiscount($id: ID!) {
+      mutation DeleteVolumeDiscount($id: ID!) {
         discountAutomaticDelete(id: $id) {
           deletedAutomaticDiscountId
           userErrors {
@@ -236,9 +224,7 @@ export async function deleteBundleDiscount(admin, id) {
           }
         }
       }`,
-    {
-      variables: { id },
-    },
+    { variables: { id } },
   );
   const responseJson = await response.json();
   const payload = responseJson.data?.discountAutomaticDelete;
@@ -253,33 +239,8 @@ export async function deleteBundleDiscount(admin, id) {
   };
 }
 
-export function resolveFunctionHandle() {
+export function resolveVolumeFunctionHandle() {
   const env = process.env ?? {};
 
-  return env.SHOPIFY_BUNDLE_FUNCTION_HANDLE || DEFAULT_FUNCTION_HANDLE;
-}
-
-function parseDiscountNodes(edges = []) {
-  return edges
-    .map(({ node }) => {
-      const configValue = node.metafield?.value;
-      const automaticDiscount = node.discount;
-
-      if (!configValue || !automaticDiscount?.discountId) {
-        return null;
-      }
-
-      return {
-        nodeId: automaticDiscount.discountId,
-        adminGraphqlNodeId: node.id,
-        discountId: automaticDiscount.discountId,
-        title: automaticDiscount.title,
-        status: automaticDiscount.status,
-        startsAt: automaticDiscount.startsAt,
-        endsAt: automaticDiscount.endsAt,
-        config: parseBundleConfig(configValue),
-      };
-    })
-    .filter((entry) => entry && isBundleConfig(entry.config))
-    .filter(Boolean);
+  return env.SHOPIFY_BUNDLE_FUNCTION_HANDLE || DEFAULT_VOLUME_FUNCTION_HANDLE;
 }

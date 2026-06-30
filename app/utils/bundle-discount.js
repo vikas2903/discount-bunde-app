@@ -2,6 +2,7 @@ export const BUNDLE_METAFIELD_NAMESPACE = "$app:bundle-discount";
 export const BUNDLE_METAFIELD_KEY = "function-configuration";
 export const DEFAULT_FUNCTION_HANDLE = "bundle-pack-3-for-999";
 export const DEFAULT_BUNDLE_CONFIG = {
+  discountType: "bundle",
   bundleTiers: [
     { quantity: 2, price: 799 },
     { quantity: 3, price: 999 },
@@ -40,6 +41,8 @@ export function parseBundleConfig(value) {
     const bundleTiers = normalizeBundleTiers(config.bundleTiers, []);
 
     return {
+      discountType:
+        config.discountType === "bundle" ? config.discountType : "bundle",
       bundleTiers,
       selectedCollectionIds: Array.isArray(config.selectedCollectionIds)
         ? config.selectedCollectionIds.filter((id) => typeof id === "string")
@@ -71,6 +74,7 @@ export function buildBundleConfig(formData) {
 
   return {
     config: {
+      discountType: "bundle",
       bundleTiers,
       selectedCollectionIds,
       message:
@@ -132,6 +136,10 @@ export function formatBundleDiscountInput({
       },
     ],
   };
+}
+
+export function isBundleConfig(config) {
+  return Array.isArray(config?.bundleTiers) && config.bundleTiers.length > 0;
 }
 
 export function toIsoDateTime(value) {

@@ -1,9 +1,12 @@
+/* eslint-disable react/prop-types */
 import DiscountCard from "./DiscountCard";
 
 export default function DiscountList({
   discounts,
   discountsError,
   toggleFetcher,
+  onEdit,
+  collectionTitleMap,
 }) {
   if (discountsError) {
     return (
@@ -25,9 +28,11 @@ export default function DiscountList({
     <s-stack direction="block" gap="base">
       {discounts.map((discount) => (
         <DiscountCard
-          key={discount.nodeId}
+          key={discount.discountId}
           discount={discount}
           toggleFetcher={toggleFetcher}
+          onEdit={onEdit}
+          collectionTitleMap={collectionTitleMap}
         />
       ))}
     </s-stack>

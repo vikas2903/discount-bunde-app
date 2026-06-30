@@ -1,90 +1,50 @@
-/* global process */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useFetcher, useLoaderData } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { requireSubscription } from "../utils/billing.server";
-import DiscountList from "../components/volume-discounts/DiscountList";
 import VolumeDiscountForm from "../components/volume-discounts/VolumeDiscountForm";
-
-const VOLUME_METAFIELD_NAMESPACE = "$app:volume-discount";
-const VOLUME_METAFIELD_KEY = "function-configuration";
-const DEFAULT_FUNCTION_HANDLE = "bundle-pack-3-for-999";
+import {
+  createVolumeDiscount,
+  deleteVolumeDiscount,
+  getVolumeCollections,
+  listVolumeDiscounts,
+  resolveVolumeFunctionHandle,
+  toggleVolumeDiscountStatus,
+  updateVolumeDiscount,
+} from "../services/volume-discount.server";
+import {
+  DEFAULT_VOLUME_CONFIG,
+  normalizeVolumeConfig,
+  parseVolumeConfig,
+  validateVolumeConfig,
+} from "../utils/volume-discount";
 
 export const loader = async ({ request }) => {
   const { admin, billing, session } = await authenticate.admin(request);
   await requireSubscription(billing, request, session.shop);
-  const env = typeof process !== "undefined" ? process.env : {};
-  const [discountsResult] = await Promise.allSettled([
-    admin.graphql(
-      `#graphql
-        query ExistingVolumeDiscounts {
-          automaticDiscountNodes(first: 50) {
-            edges {
-              node {
-                id
-                metafield(
-                  namespace: "${VOLUME_METAFIELD_NAMESPACE}"
-                  key: "${VOLUME_METAFIELD_KEY}"
-                ) {
-                  value
-                }
-                automaticDiscount {
-                  ... on DiscountAutomaticApp {
-                    discountId
-                    title
-                    status
-                    startsAt
-                    endsAt
-                  }
-                }
-              }
-            }
-          }
-        }`,
-    ),
+  const [collectionsResult, discountsResult] = await Promise.allSettled([
+    getVolumeCollections(admin),
+    listVolumeDiscounts(admin),
   ]);
 
-  const discountsResponseJson =
-    discountsResult.status === "fulfilled"
-      ? await discountsResult.value.json()
-      : null;
-
-  const discounts =
-    discountsResponseJson?.data?.automaticDiscountNodes?.edges
-      ?.map(({ node }) => {
-        const configValue = node.metafield?.value;
-        const automaticDiscount = node.automaticDiscount;
-
-        if (!configValue || !automaticDiscount?.discountId) {
-          return null;
-        }
-
-        return {
-          nodeId: node.id,
-          discountId: automaticDiscount.discountId,
-          title: automaticDiscount.title,
-          status: automaticDiscount.status,
-          startsAt: automaticDiscount.startsAt,
-          endsAt: automaticDiscount.endsAt,
-          config: parseVolumeConfig(configValue),
-        };
-      })
-      .filter(Boolean) || [];
-
-  const discountsGraphqlError =
-    discountsResponseJson?.errors?.map(({ message }) => message).join(" | ") ||
-    null;
-  const discountsError =
-    discountsResult.status === "rejected"
-      ? toErrorMessage(discountsResult.reason)
-      : discountsGraphqlError;
-
   return {
-    discounts,
-    discountsError,
-    functionHandle:
-      env.SHOPIFY_BUNDLE_FUNCTION_HANDLE || DEFAULT_FUNCTION_HANDLE,
+    collections:
+      collectionsResult.status === "fulfilled"
+        ? collectionsResult.value.collections
+        : [],
+    discounts:
+      discountsResult.status === "fulfilled" ? discountsResult.value.discounts : [],
+    loadError: [
+      ...(collectionsResult.status === "rejected"
+        ? [toErrorMessage(collectionsResult.reason)]
+        : collectionsResult.value.graphqlErrors.map(({ message }) => message)),
+      ...(discountsResult.status === "rejected"
+        ? [toErrorMessage(discountsResult.reason)]
+        : discountsResult.value.graphqlErrors.map(({ message }) => message)),
+    ]
+      .filter(Boolean)
+      .join(" | "),
   };
 };
 
@@ -92,421 +52,561 @@ export const action = async ({ request }) => {
   const { admin, billing, session } = await authenticate.admin(request);
   await requireSubscription(billing, request, session.shop);
   const formData = await request.formData();
-  const env = typeof process !== "undefined" ? process.env : {};
   const intent = String(formData.get("intent") || "create");
 
-  if (intent === "search-products") {
-    const searchTerm = String(formData.get("searchTerm") || "").trim();
-
-    if (!searchTerm) {
-      return {
-        ok: true,
-        action: intent,
-        products: [],
-      };
-    }
-
-    try {
-      const response = await admin.graphql(
-        `#graphql
-          query SearchProducts($query: String!) {
-            products(first: 10, query: $query) {
-              edges {
-                node {
-                  id
-                  title
-                  handle
-                }
-              }
-            }
-          }`,
-        {
-          variables: {
-            query: buildProductSearchQuery(searchTerm),
-          },
-        },
-      );
-
-      const responseJson = await response.json();
-
-      return {
-        ok: true,
-        action: intent,
-        products:
-          responseJson.data?.products?.edges?.map(({ node }) => node) || [],
-        graphqlErrors: responseJson.errors || [],
-      };
-    } catch (error) {
-      return {
-        ok: false,
-        action: intent,
-        products: [],
-        graphqlErrors: [{ message: toErrorMessage(error) }],
-      };
-    }
-  }
-
   if (intent === "toggle-status") {
-    const discountNodeId = String(formData.get("discountNodeId") || "").trim();
+    const discountId = String(formData.get("discountId") || "").trim();
     const nextStatus = String(formData.get("nextStatus") || "").trim();
 
-    if (!discountNodeId || !["enable", "disable"].includes(nextStatus)) {
-      return {
-        ok: false,
-        action: intent,
-        userErrors: [
-          {
-            field: ["discountNodeId"],
-            message: "The selected volume discount could not be updated.",
-          },
-        ],
-        graphqlErrors: [],
-      };
+    if (!discountId || !["enable", "disable"].includes(nextStatus)) {
+      return createActionError(
+        intent,
+        "The selected volume discount could not be updated.",
+      );
     }
 
     try {
-      const response = await admin.graphql(
-        `#graphql
-          mutation ToggleVolumeDiscount($id: ID!) {
-            ${
-              nextStatus === "disable"
-                ? "discountAutomaticDeactivate"
-                : "discountAutomaticActivate"
-            }(id: $id) {
-              automaticDiscountNode {
-                automaticDiscount {
-                  ... on DiscountAutomaticApp {
-                    discountId
-                    title
-                    status
-                    startsAt
-                    endsAt
-                  }
-                }
-              }
-              userErrors {
-                field
-                message
-              }
-            }
-          }`,
-        {
-          variables: {
-            id: discountNodeId,
-          },
-        },
-      );
-
-      const responseJson = await response.json();
-      const payload =
-        nextStatus === "disable"
-          ? responseJson.data?.discountAutomaticDeactivate
-          : responseJson.data?.discountAutomaticActivate;
-      const userErrors = payload?.userErrors || [];
-
       return {
-        ok:
-          userErrors.length === 0 &&
-          Boolean(payload?.automaticDiscountNode?.automaticDiscount),
+        ...(await toggleVolumeDiscountStatus(admin, {
+          id: discountId,
+          nextStatus,
+        })),
         action: intent,
-        discount: payload?.automaticDiscountNode?.automaticDiscount,
-        userErrors,
-        graphqlErrors: responseJson.errors || [],
-        nextStatus,
       };
     } catch (error) {
-      return {
-        ok: false,
-        action: intent,
-        userErrors: [],
-        graphqlErrors: [{ message: toErrorMessage(error) }],
-      };
+      return createActionError(intent, toErrorMessage(error));
     }
   }
 
-  const rawConfig = String(formData.get("config") || "{}");
-  const parsedConfig = parseVolumeConfig(rawConfig);
-  const config = normalizeVolumeConfig(parsedConfig);
-  const validationErrors = validateVolumeConfig(config);
+  if (intent === "delete") {
+    const discountId = String(formData.get("discountId") || "").trim();
 
-  if (validationErrors.length > 0) {
+    if (!discountId) {
+      return createActionError(
+        intent,
+        "The selected volume discount could not be deleted.",
+      );
+    }
+
+    try {
+      return {
+        ...(await deleteVolumeDiscount(admin, discountId)),
+        action: intent,
+      };
+    } catch (error) {
+      return createActionError(intent, toErrorMessage(error));
+    }
+  }
+
+  const config = normalizeVolumeConfig(
+    parseVolumeConfig(String(formData.get("config") || "{}")),
+  );
+  const validationErrors = validateVolumeConfig(config);
+  const { discounts: existingDiscounts } = await listVolumeDiscounts(admin);
+  const editingDiscountId = String(formData.get("discountId") || "").trim();
+  const overlappingDiscounts = existingDiscounts.filter((discount) => {
+    if (discount.status !== "ACTIVE") {
+      return false;
+    }
+
+    if (discount.discountId === editingDiscountId) {
+      return false;
+    }
+
+    if (discount.config.mode === "legacy-product") {
+      return false;
+    }
+
+    return hasCollectionOverlap(
+      config.selectedCollectionIds,
+      discount.config.selectedCollectionIds || [],
+    );
+  });
+
+  if (validationErrors.length > 0 || overlappingDiscounts.length > 0) {
     return {
       ok: false,
       action: intent,
-      userErrors: validationErrors.map((message) => ({
-        field: ["config"],
-        message,
-      })),
-      graphqlErrors: [],
       config,
+      userErrors: [
+        ...validationErrors.map((message) => ({
+          field: ["config"],
+          message,
+        })),
+        ...overlappingDiscounts.map((discount) => ({
+          field: ["config"],
+          message: `This discount overlaps with active volume discount "${discount.title}". Deactivate or change collections before saving.`,
+        })),
+      ],
+      graphqlErrors: [],
     };
   }
 
-  const automaticAppDiscount = {
-    title: config.title,
-    startsAt: new Date().toISOString(),
-    endsAt: null,
-    functionHandle:
-      env.SHOPIFY_BUNDLE_FUNCTION_HANDLE || DEFAULT_FUNCTION_HANDLE,
-    discountClasses: ["PRODUCT"],
-    combinesWith: {
-      productDiscounts: true,
-      orderDiscounts: false,
-      shippingDiscounts: false,
-    },
-    metafields: [
-      {
-        namespace: VOLUME_METAFIELD_NAMESPACE,
-        key: VOLUME_METAFIELD_KEY,
-        type: "json",
-        value: JSON.stringify(config),
-      },
-    ],
-  };
-
   try {
-    const response = await admin.graphql(
-      `#graphql
-        mutation CreateVolumeDiscount($automaticAppDiscount: DiscountAutomaticAppInput!) {
-          discountAutomaticAppCreate(automaticAppDiscount: $automaticAppDiscount) {
-            userErrors {
-              field
-              message
-            }
-            automaticAppDiscount {
-              discountId
-              title
-              status
-              startsAt
-              endsAt
-            }
-          }
-        }`,
-      {
-        variables: {
-          automaticAppDiscount,
-        },
-      },
-    );
+    if (intent === "update") {
+      const discountId = String(formData.get("discountId") || "").trim();
 
-    const responseJson = await response.json();
-    const payload = responseJson.data?.discountAutomaticAppCreate;
-    const userErrors = payload?.userErrors || [];
+      if (!discountId) {
+        return createActionError(intent, "Discount ID is required to update.");
+      }
+
+      return {
+        ...(await updateVolumeDiscount(admin, {
+          id: discountId,
+          title: config.title,
+          startsAt: String(formData.get("startsAt") || "").trim() || undefined,
+          endsAt: String(formData.get("endsAt") || "").trim() || null,
+          functionHandle: resolveVolumeFunctionHandle(),
+          config,
+        })),
+        action: intent,
+        config,
+      };
+    }
 
     return {
-      ok: userErrors.length === 0 && Boolean(payload?.automaticAppDiscount),
+      ...(await createVolumeDiscount(admin, {
+        title: config.title,
+        startsAt: new Date().toISOString(),
+        endsAt: null,
+        functionHandle: resolveVolumeFunctionHandle(),
+        config,
+      })),
       action: intent,
-      discount: payload?.automaticAppDiscount,
-      userErrors,
-      graphqlErrors: responseJson.errors || [],
       config,
     };
   } catch (error) {
-    return {
-      ok: false,
-      action: intent,
-      userErrors: [],
-      graphqlErrors: [{ message: toErrorMessage(error) }],
-      config,
-    };
+    return createActionError(intent, toErrorMessage(error), config);
   }
 };
 
 const INITIAL_FORM = {
-  title: "",
-  message: "Buy more & save more",
-  status: "ACTIVE",
-  products: [],
+  ...DEFAULT_VOLUME_CONFIG,
+  tiers: [...DEFAULT_VOLUME_CONFIG.tiers],
 };
 
 export default function VolumeDiscountsPage() {
-  const createFetcher = useFetcher();
-  const searchFetcher = useFetcher();
-  const toggleFetcher = useFetcher();
+  const formFetcher = useFetcher();
+  const actionFetcher = useFetcher();
   const shopify = useAppBridge();
-  const { discounts, discountsError } = useLoaderData();
+  const { collections, discounts, loadError } = useLoaderData();
   const [form, setForm] = useState(INITIAL_FORM);
-  const latestResponse = createFetcher.data || toggleFetcher.data;
+  const [showForm, setShowForm] = useState(false);
+  const [activeTab, setActiveTab] = useState("all");
+  const [editingDiscountId, setEditingDiscountId] = useState("");
+  const [editingSchedule, setEditingSchedule] = useState({
+    startsAt: "",
+    endsAt: "",
+  });
 
-  useEffect(() => {
-    if (createFetcher.data?.config) {
-      setForm(createFetcher.data.config);
+  const collectionTitleMap = useMemo(
+    () => new Map(collections.map((collection) => [collection.id, collection.title])),
+    [collections],
+  );
+  const latestAction = formFetcher.data || actionFetcher.data;
+  const editingDiscount = useMemo(
+    () =>
+      discounts.find((discount) => discount.discountId === editingDiscountId) || null,
+    [discounts, editingDiscountId],
+  );
+  const overlapWarnings = useMemo(() => {
+    const currentCollectionIds = form.selectedCollectionIds || [];
+
+    return discounts
+      .filter((discount) => discount.discountId !== editingDiscountId)
+      .filter((discount) => discount.config.mode !== "legacy-product")
+      .filter((discount) => discount.status === "ACTIVE")
+      .filter((discount) =>
+        hasCollectionOverlap(currentCollectionIds, discount.config.selectedCollectionIds || []),
+      )
+      .map((discount) => {
+        const collectionTitles =
+          discount.config.selectedCollectionIds.length > 0
+            ? discount.config.selectedCollectionIds
+                .map((collectionId) => collectionTitleMap.get(collectionId) || collectionId)
+                .join(", ")
+            : "All products";
+
+        return {
+          discountId: discount.discountId,
+          title: discount.title,
+          collections: collectionTitles,
+        };
+      });
+  }, [collectionTitleMap, discounts, editingDiscountId, form.selectedCollectionIds]);
+  const filteredDiscounts = useMemo(() => {
+    if (activeTab === "active") {
+      return discounts.filter((discount) => discount.status === "ACTIVE");
     }
-  }, [createFetcher.data]);
+
+    if (activeTab === "draft") {
+      return discounts.filter((discount) => discount.status !== "ACTIVE");
+    }
+
+    return discounts;
+  }, [activeTab, discounts]);
 
   useEffect(() => {
-    if (createFetcher.data?.ok) {
-      setForm(INITIAL_FORM);
+    if (formFetcher.data?.config) {
+      setForm(formFetcher.data.config);
+    }
+  }, [formFetcher.data]);
+
+  useEffect(() => {
+    if (!formFetcher.data?.ok) {
+      return;
+    }
+
+    if (formFetcher.data.action === "update") {
+      shopify.toast.show("Volume discount updated");
+    } else {
       shopify.toast.show("Volume discount created");
     }
-  }, [createFetcher.data?.ok, shopify]);
+
+    setForm(INITIAL_FORM);
+    setShowForm(false);
+    setEditingDiscountId("");
+    setEditingSchedule({ startsAt: "", endsAt: "" });
+  }, [formFetcher.data, shopify]);
 
   useEffect(() => {
-    if (toggleFetcher.data?.ok) {
+    if (!actionFetcher.data?.ok) {
+      return;
+    }
+
+    if (actionFetcher.data.action === "delete") {
+      shopify.toast.show("Volume discount deleted");
+      if (editingDiscountId === String(actionFetcher.formData?.get("discountId") || "")) {
+        setForm(INITIAL_FORM);
+        setShowForm(false);
+        setEditingDiscountId("");
+        setEditingSchedule({ startsAt: "", endsAt: "" });
+      }
+      return;
+    }
+
+    if (actionFetcher.data.action === "toggle-status") {
       shopify.toast.show(
-        toggleFetcher.data?.nextStatus === "disable"
+        actionFetcher.data.nextStatus === "disable"
           ? "Volume discount disabled"
           : "Volume discount enabled",
       );
     }
-  }, [shopify, toggleFetcher.data]);
+  }, [actionFetcher.data, actionFetcher.formData, editingDiscountId, shopify]);
+
+  const actionErrorMessage = [
+    ...(latestAction?.userErrors || []).map(({ message }) => message),
+    ...(latestAction?.graphqlErrors || []).map(({ message }) => message),
+  ]
+    .filter(Boolean)
+    .join(" | ");
+
+  const startEditing = (discount) => {
+    if (discount.config.mode === "legacy-product") {
+      shopify.toast.show("Legacy product-rule discounts can be toggled or deleted only");
+      return;
+    }
+
+    setShowForm(true);
+    setEditingDiscountId(discount.discountId);
+    setEditingSchedule({
+      startsAt: discount.startsAt || "",
+      endsAt: discount.endsAt || "",
+    });
+    setForm({
+      title: discount.config.title || discount.title,
+      message: discount.config.message || DEFAULT_VOLUME_CONFIG.message,
+      status: discount.config.status || "ACTIVE",
+      selectedCollectionIds: [...(discount.config.selectedCollectionIds || [])],
+      tiers:
+        discount.config.tiers.length > 0
+          ? discount.config.tiers.map((tier) => ({ ...tier }))
+          : [...DEFAULT_VOLUME_CONFIG.tiers],
+    });
+  };
+
+  const cancelEditing = () => {
+    setShowForm(false);
+    setEditingDiscountId("");
+    setEditingSchedule({ startsAt: "", endsAt: "" });
+    setForm(INITIAL_FORM);
+  };
 
   return (
-    <s-page heading="Volume discounts">
-      <s-section heading="Create volume discount">
-        <VolumeDiscountForm
-          fetcher={createFetcher}
-          searchFetcher={searchFetcher}
-          form={form}
-          setForm={setForm}
-        />
-      </s-section>
+    <s-page>
+      <div style={{ display: "grid", gap: "1.5rem" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "1rem",
+            flexWrap: "wrap",
+          }}
+        >
+          <h1 style={{ margin: 0, fontSize: "1.6rem", fontWeight: 700 }}>
+            Volume discounts
+          </h1>
+          <button
+            type="button"
+            onClick={() => {
+              setForm(INITIAL_FORM);
+              setEditingDiscountId("");
+              setEditingSchedule({ startsAt: "", endsAt: "" });
+              setShowForm(true);
+            }}
+            style={{
+              border: "1px solid #2b2b2b",
+              background: "#333333",
+              color: "#ffffff",
+              borderRadius: "0.65rem",
+              padding: "0.75rem 1rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1)",
+            }}
+          >
+            Create new volume discount
+          </button>
+        </div>
 
-      <s-section heading="Saved volume discounts">
-        <DiscountList
-          discounts={discounts}
-          discountsError={discountsError}
-          toggleFetcher={toggleFetcher}
-        />
-      </s-section>
+        {loadError ? (
+          <s-banner tone="critical">
+            <s-paragraph>{loadError}</s-paragraph>
+          </s-banner>
+        ) : null}
+        {actionErrorMessage ? (
+          <s-banner tone="critical">
+            <s-paragraph>{actionErrorMessage}</s-paragraph>
+          </s-banner>
+        ) : null}
+        {showForm && overlapWarnings.length > 0 ? (
+          <s-banner tone="warning">
+            <s-paragraph>
+              Warning: this discount overlaps with other active volume discounts.
+              Review these before saving to avoid unexpected cart discounts.
+            </s-paragraph>
+            <div style={{ display: "grid", gap: "0.35rem", marginTop: "0.6rem" }}>
+              {overlapWarnings.map((warning) => (
+                <s-paragraph key={warning.discountId}>
+                  {warning.title} - {warning.collections}
+                </s-paragraph>
+              ))}
+            </div>
+          </s-banner>
+        ) : null}
 
-      {latestResponse && (
-        <s-section heading="Save response">
-          <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>
-            <code>{JSON.stringify(latestResponse, null, 2)}</code>
-          </pre>
-        </s-section>
-      )}
+        <div style={panelStyle}>
+          <div style={toolbarStyle}>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              {[
+                { key: "all", label: "All" },
+                { key: "active", label: "Active" },
+                { key: "draft", label: "Draft" },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                  style={{
+                    ...tabButtonStyle,
+                    background: activeTab === tab.key ? "#f1f1f1" : "transparent",
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ overflowX: "auto" }}>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                minWidth: "920px",
+              }}
+            >
+              <thead>
+                <tr>
+                  {["", "Name", "Discount", "Status", "Type", ""].map(
+                    (heading, index) => (
+                      <th key={`${heading}-${index}`} style={headerCellStyle}>
+                        {heading === "" ? (index === 0 ? <input type="checkbox" disabled /> : null) : heading}
+                      </th>
+                    ),
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredDiscounts.length > 0 ? (
+                  filteredDiscounts.map((discount) => {
+                    const isActive = discount.status === "ACTIVE";
+                    const targetedDiscountId = String(
+                      actionFetcher.formData?.get("discountId") || "",
+                    );
+                    const currentAction = actionFetcher.data?.action;
+                    const isWorkingOnThisDiscount =
+                      actionFetcher.state !== "idle" &&
+                      targetedDiscountId === discount.discountId;
+                    const collectionTitles = discount.config.selectedCollectionIds.map(
+                      (collectionId) => collectionTitleMap.get(collectionId) || collectionId,
+                    );
+                    const sortedTiers =
+                      discount.config.mode === "legacy-product"
+                        ? []
+                        : [...discount.config.tiers].sort(
+                            (left, right) => left.minQty - right.minQty,
+                          );
+                    const leadTier = sortedTiers[0];
+                    const discountLabel = leadTier
+                      ? `${leadTier.minQty} items -> ${leadTier.discountValue}% off`
+                      : "Legacy product rules";
+                    const typeLabel =
+                      collectionTitles.length > 0 ? "Collection-based" : "Store-wide";
+
+                    return (
+                      <tr key={discount.discountId}>
+                        <td style={bodyCellStyle}>
+                          <input type="checkbox" />
+                        </td>
+                        <td style={bodyCellStyle}>{discount.title}</td>
+                        <td style={bodyCellStyle}>{discountLabel}</td>
+                        <td style={bodyCellStyle}>
+                          <span
+                            style={{
+                              ...statusPillStyle,
+                              background: isActive ? "#b8f7c4" : "#eceff3",
+                              color: isActive ? "#177a34" : "#64748b",
+                            }}
+                          >
+                            {isActive ? "Active" : "Draft"}
+                          </span>
+                        </td>
+                        <td style={bodyCellStyle}>{typeLabel}</td>
+                        <td style={{ ...bodyCellStyle, textAlign: "right" }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "flex-end",
+                              gap: "0.45rem",
+                            }}
+                          >
+                            {discount.config.mode !== "legacy-product" ? (
+                              <button
+                                type="button"
+                                style={rowIconButtonStyle}
+                                onClick={() => startEditing(discount)}
+                              >
+                                Edit
+                              </button>
+                            ) : null}
+                            <actionFetcher.Form method="post">
+                              <input type="hidden" name="intent" value="toggle-status" />
+                              <input
+                                type="hidden"
+                                name="discountId"
+                                value={discount.discountId}
+                              />
+                              <input
+                                type="hidden"
+                                name="nextStatus"
+                                value={isActive ? "disable" : "enable"}
+                              />
+                              <button
+                                type="submit"
+                                style={rowIconButtonStyle}
+                                disabled={
+                                  isWorkingOnThisDiscount &&
+                                  currentAction === "toggle-status"
+                                }
+                              >
+                                {isActive ? "Deactivate" : "Activate"}
+                              </button>
+                            </actionFetcher.Form>
+                            <actionFetcher.Form method="post">
+                              <input type="hidden" name="intent" value="delete" />
+                              <input
+                                type="hidden"
+                                name="discountId"
+                                value={discount.discountId}
+                              />
+                              <button
+                                type="submit"
+                                style={rowIconButtonStyle}
+                                disabled={
+                                  isWorkingOnThisDiscount &&
+                                  currentAction === "delete"
+                                }
+                              >
+                                Delete
+                              </button>
+                            </actionFetcher.Form>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={6} style={emptyStateCellStyle}>
+                      No volume discounts found in this tab.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={pagerWrapStyle}>
+            <button type="button" disabled style={pagerButtonStyle}>
+              {"<"}
+            </button>
+            <span style={{ color: "#666", fontSize: "1.05rem" }}>
+              Showing page 1 of 1
+            </span>
+            <button type="button" disabled style={pagerButtonStyle}>
+              {">"}
+            </button>
+          </div>
+        </div>
+
+        {showForm ? (
+          <s-section
+            heading={editingDiscount ? "Update volume discount" : "Create volume discount"}
+          >
+            <VolumeDiscountForm
+              fetcher={formFetcher}
+              form={form}
+              setForm={setForm}
+              collections={collections}
+              isEditing={Boolean(editingDiscount)}
+              editingDiscountId={editingDiscountId}
+              editingSchedule={editingSchedule}
+              onCancelEdit={cancelEditing}
+            />
+          </s-section>
+        ) : null}
+      </div>
     </s-page>
   );
 }
 
-function parseVolumeConfig(value) {
-  const fallback = {
-    title: "",
-    message: "Buy more & save more",
-    status: "ACTIVE",
-    products: [],
-  };
-
-  if (!value) {
-    return fallback;
-  }
-
-  try {
-    const config = JSON.parse(value);
-
-    return {
-      title: typeof config.title === "string" ? config.title : fallback.title,
-      message:
-        typeof config.message === "string" && config.message.trim()
-          ? config.message.trim()
-          : fallback.message,
-      status:
-        config.status === "DRAFT" || config.status === "ACTIVE"
-          ? config.status
-          : fallback.status,
-      products: Array.isArray(config.products)
-        ? config.products.map((product) => ({
-            productId:
-              typeof product?.productId === "string" ? product.productId : "",
-            productTitle:
-              typeof product?.productTitle === "string"
-                ? product.productTitle
-                : "",
-            tiers: Array.isArray(product?.tiers)
-              ? product.tiers.map((tier) => ({
-                  minQty: toPositiveInteger(tier?.minQty, 2),
-                  discountType: "percentage",
-                  discountValue: toPositiveNumber(tier?.discountValue, 10),
-                }))
-              : [],
-          }))
-        : fallback.products,
-    };
-  } catch {
-    return fallback;
-  }
-}
-
-function normalizeVolumeConfig(config) {
+function createActionError(action, message, config = null) {
   return {
-    ...config,
-    title: config.title.trim() || "Volume Discount",
-    message: config.message.trim() || "Buy more & save more",
-    products: config.products
-      .map((product) => ({
-        ...product,
-        productId: product.productId.trim(),
-        productTitle: product.productTitle.trim(),
-        tiers: [...product.tiers]
-          .map((tier) => ({
-            ...tier,
-            discountType: "percentage",
-            minQty: toPositiveInteger(tier.minQty, 2),
-            discountValue: toPositiveNumber(tier.discountValue, 10),
-            label: `Buy ${toPositiveInteger(tier.minQty, 2)} get ${toPositiveNumber(
-              tier.discountValue,
-              10,
-            )}% off`,
-          }))
-          .sort((left, right) => right.minQty - left.minQty),
-      }))
-      .filter((product) => product.productId),
+    ok: false,
+    action,
+    config,
+    userErrors: message
+      ? [
+          {
+            field: ["config"],
+            message,
+          },
+        ]
+      : [],
+    graphqlErrors: [],
   };
-}
-
-function validateVolumeConfig(config) {
-  const errors = [];
-
-  if (!config.title.trim()) {
-    errors.push("Discount title is required.");
-  }
-
-  if (!config.products.length) {
-    errors.push("Add at least one product rule.");
-  }
-
-  for (const product of config.products) {
-    if (!product.productId) {
-      errors.push("Every product rule needs a product.");
-    }
-
-    if (!product.tiers.length) {
-      errors.push(
-        `${product.productTitle || "A product"} needs at least one tier.`,
-      );
-      continue;
-    }
-
-    for (const tier of product.tiers) {
-      if (tier.minQty < 2) {
-        errors.push("Tier quantity must be 2 or more.");
-      }
-
-      if (tier.discountValue <= 0) {
-        errors.push("Tier discount value must be greater than 0.");
-      }
-    }
-  }
-
-  return errors;
-}
-
-function toPositiveInteger(value, fallback) {
-  const numberValue = Number(value);
-
-  return Number.isInteger(numberValue) && numberValue > 0
-    ? numberValue
-    : fallback;
-}
-
-function toPositiveNumber(value, fallback) {
-  const numberValue = Number(value);
-
-  return Number.isFinite(numberValue) && numberValue > 0
-    ? numberValue
-    : fallback;
 }
 
 function toErrorMessage(error) {
@@ -517,29 +617,100 @@ function toErrorMessage(error) {
   return String(error);
 }
 
-function buildProductSearchQuery(searchTerm) {
-  const normalizedSearchTerm = searchTerm.trim();
+function hasCollectionOverlap(leftCollectionIds, rightCollectionIds) {
+  const left = Array.isArray(leftCollectionIds) ? leftCollectionIds : [];
+  const right = Array.isArray(rightCollectionIds) ? rightCollectionIds : [];
 
-  if (!normalizedSearchTerm) {
-    return "";
+  if (left.length === 0 || right.length === 0) {
+    return true;
   }
 
-  const exactPhrase = escapeShopifySearchValue(normalizedSearchTerm);
-  const tokens = normalizedSearchTerm
-    .split(/\s+/)
-    .map((token) => token.trim())
-    .filter(Boolean)
-    .map((token) => escapeShopifySearchValue(token));
-
-  const titleClauses = [
-    `title:${exactPhrase}*`,
-    ...tokens.map((token) => `title:${token}*`),
-  ];
-  const handleClauses = tokens.map((token) => `handle:${token}*`);
-
-  return [...titleClauses, ...handleClauses].join(" OR ");
+  return left.some((collectionId) => right.includes(collectionId));
 }
 
-function escapeShopifySearchValue(value) {
-  return value.replace(/([:\\()])/g, "\\$1");
-}
+const panelStyle = {
+  border: "1px solid #d7dbe0",
+  borderRadius: "1rem",
+  overflow: "hidden",
+  background: "#ffffff",
+  boxShadow: "0 1px 3px rgba(15, 23, 42, 0.08)",
+};
+
+const toolbarStyle = {
+  padding: "0.7rem 0.8rem",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "1rem",
+  borderBottom: "1px solid #e5e7eb",
+  flexWrap: "wrap",
+};
+
+const tabButtonStyle = {
+  border: "none",
+  color: "#444",
+  borderRadius: "0.7rem",
+  padding: "0.6rem 0.9rem",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const headerCellStyle = {
+  textAlign: "left",
+  padding: "0.9rem 0.9rem",
+  fontSize: "0.9rem",
+  fontWeight: 700,
+  color: "#666",
+  borderBottom: "1px solid #e5e7eb",
+  whiteSpace: "nowrap",
+};
+
+const bodyCellStyle = {
+  padding: "0.85rem 0.9rem",
+  borderBottom: "1px solid #e5e7eb",
+  color: "#2c2c2c",
+  fontSize: "0.92rem",
+};
+
+const statusPillStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: "999px",
+  padding: "0.28rem 0.65rem",
+  fontSize: "0.85rem",
+};
+
+const rowIconButtonStyle = {
+  borderRadius: "0.6rem",
+  border: "1px solid #d1d5db",
+  background: "#ffffff",
+  cursor: "pointer",
+  fontSize: "0.9rem",
+  padding: "0.45rem 0.7rem",
+  minHeight: "2rem",
+};
+
+const emptyStateCellStyle = {
+  padding: "2rem 1rem",
+  textAlign: "center",
+  color: "#6b7280",
+};
+
+const pagerWrapStyle = {
+  padding: "1.8rem 1rem",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  gap: "1rem",
+};
+
+const pagerButtonStyle = {
+  width: "2rem",
+  height: "2rem",
+  borderRadius: "0.6rem",
+  border: "1px solid #e5e7eb",
+  background: "#efefef",
+  color: "#6b7280",
+  fontSize: "1.2rem",
+  opacity: 0.45,
+};

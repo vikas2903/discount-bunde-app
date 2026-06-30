@@ -22,9 +22,12 @@ export default function App() {
   return (
     <AppProvider embedded apiKey={apiKey}>
       <s-app-nav>
-        {hasSubscription ? <s-link href="/app">Dashboard</s-link> : null}
+        {/* {hasSubscription ? <s-link href="/app">Dashboard</s-link> : null} */}
         {hasSubscription ? (
           <s-link href="/app/disocunt_bundle">Bundle discounts</s-link>
+        ) : null}
+        {hasSubscription ? (
+          <s-link href="/app/volume_discounts">Volume discounts</s-link>
         ) : null}
         <s-link href="/app/billing">Plan</s-link>
       </s-app-nav>
