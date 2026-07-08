@@ -8,26 +8,52 @@ import {
 } from "../utils/bundle-discount";
 
 export async function getBundleCollections(admin) {
-  const response = await admin.graphql(
-    `#graphql
-      query BundleCollections {
-        collections(first: 50) {
-          edges {
-            node {
-              id
-              title
-              handle
+  const collections = [];
+  const graphqlErrors = [];
+  let hasNextPage = true;
+  let cursor = null;
+
+  while (hasNextPage) {
+    const response = await admin.graphql(
+      `#graphql
+        query BundleCollections($after: String) {
+          collections(first: 250, after: $after, sortKey: TITLE) {
+            edges {
+              cursor
+              node {
+                id
+                title
+                handle
+              }
+            }
+            pageInfo {
+              hasNextPage
             }
           }
-        }
-      }`,
-  );
-  const responseJson = await response.json();
+        }`,
+      {
+        variables: {
+          after: cursor,
+        },
+      },
+    );
+    const responseJson = await response.json();
+    const edges = responseJson.data?.collections?.edges || [];
+
+    collections.push(...edges.map(({ node }) => node));
+    graphqlErrors.push(...(responseJson.errors || []));
+
+    hasNextPage = Boolean(responseJson.data?.collections?.pageInfo?.hasNextPage);
+    cursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
+
+    if (!cursor) {
+      hasNextPage = false;
+    }
+  }
 
   return {
-    collections:
-      responseJson.data?.collections?.edges?.map(({ node }) => node) || [],
-    graphqlErrors: responseJson.errors || [],
+    collections,
+    graphqlErrors,
   };
 }
 

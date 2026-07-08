@@ -7,8 +7,9 @@ import { loginErrorMessage } from "./error.server";
 export const loader = async ({ request }) => {
   const url = new URL(request.url);
   const shop = url.searchParams.get("shop") || "";
+  const errors = loginErrorMessage(await login(request));
 
-  return { errors: {}, shop };
+  return { errors, shop };
 };
 
 export const action = async ({ request }) => {

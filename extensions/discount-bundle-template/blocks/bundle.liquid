@@ -1,5 +1,10 @@
 {%- liquid
   assign bundle_collection = block.settings.bundle_collection
+  assign bundle_collection_handle = bundle_collection.handle
+  assign bundle_collection_source = bundle_collection
+  if bundle_collection_handle != blank
+    assign bundle_collection_source = collections[bundle_collection_handle]
+  endif
   assign checkout_mode = block.settings.checkout_mode | default: 'shopify'
   assign default_offer = block.settings.default_offer | default: 'offer_3_fixed'
   assign offer_3_fixed_price = block.settings.offer_3_fixed_price | default: 999
@@ -38,9 +43,10 @@
         {%- endif -%}
       </div>
 
-      {%- if bundle_collection != blank and bundle_collection.products_count > 0 -%}
+      {%- if bundle_collection_source != blank and bundle_collection_source.products_count > 0 -%}
+        {%- paginate bundle_collection_source.products by 250 -%}
         <div class="bundle-collection__grid">
-          {%- for product in bundle_collection.products -%}
+          {%- for product in bundle_collection_source.products -%}
             {%- assign default_variant = product.selected_or_first_available_variant -%}
             {%- assign featured_image = product.featured_image | image_url: width: 800 -%}
             {%- assign has_multiple_variants = false -%}
@@ -78,10 +84,12 @@
                     <div class="bundle-collection__card-placeholder"></div>
                   {%- endif -%}
                 </a>
+
+                <span class="bundle-collection__card-badge">{{block.settings.Product_label}}</span>
               </div>
 
               <div class="bundle-collection__card-body">
-                <a class="bundle-collection__card-title" href="{{ product.url }}">{{ product.title | truncate: 25 }}</a>
+                <a class="bundle-collection__card-title" href="{{ product.url }}">{{ product.title | truncate: 28 }}</a>
 
                 <div class="bundle-collection__card-price-row">
                   <span class="bundle-collection__card-price">{{ default_variant.price | money }}</span>
@@ -134,6 +142,20 @@
             </article>
           {%- endfor -%}
         </div>
+        {%- if paginate.pages > 1 -%}
+          <div class="bundle-collection__pagination">
+            <p class="bundle-collection__pagination-copy">
+              Showing {{ paginate.current_offset | plus: 1 }}-{{ paginate.current_offset | plus: paginate.page_size | at_most: paginate.items }} of {{ paginate.items }} products.
+            </p>
+
+            {%- if paginate.next -%}
+              <a class="bundle-collection__pagination-link" href="{{ paginate.next.url }}">
+                Load more products
+              </a>
+            {%- endif -%}
+          </div>
+        {%- endif -%}
+        {%- endpaginate -%}
       {%- else -%}
         <div class="bundle-collection__empty">
           Choose a collection in the app block settings to use this block on a bundle page.
@@ -209,9 +231,22 @@
 
         <div class="bundle-collection__progress">
           <div class="bundle-collection__progress-steps">
-            {%- for index in (1..3) -%}
-              <span data-progress-step="{{ index }}">{{ index }}</span>
-            {%- endfor -%}
+
+        {%- assign total_steps = 0 -%}
+
+        {%- if show_offer_3_fixed or show_offer_3_percent -%}
+          {%- assign total_steps = 3 -%}
+        {%- elsif show_offer_2_fixed or show_offer_2_percent -%}
+          {%- assign total_steps = 2 -%}
+        {%- else -%}
+          {%- assign total_steps = 3 -%}
+        {%- endif -%}
+
+        {%- for index in (1..total_steps) -%}
+          <span data-progress-step="{{ index }}">{{ index }}</span>
+        {%- endfor -%}
+
+
           </div>
 
           <p class="bundle-collection__progress-text" data-progress-text>
@@ -334,9 +369,27 @@
       --bundle-shadow: 0 20px 60px rgba(17, 24, 39, 0.08);
       background:transparent;
       color: var(--bundle-text);
-      padding: {{ block.settings.padding_top }}px 0 {{ block.settings.padding_bottom }}px;
+      padding: {{ block.settings.padding_top }}px 16px {{ block.settings.padding_bottom }}px;
     }
 
+    .bundle-collection__card-badge {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    background: #0a8a16;
+    color: #fff;
+    border-radius: 2px;
+    padding: 6px 10px;
+    font-size: 12px;
+    line-height: 1;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+.bundle-collection__card-media {
+    position: relative;
+    padding: 0;
+    background: #fff;
+}
     .bundle-collection__shell {
       display: grid;
       grid-template-columns: minmax(0, 1.6fr) minmax(320px, 410px);
@@ -368,6 +421,7 @@
 
     .bundle-collection__title {
       font-size: 32px;
+      margin:0 0 6px;
     }
 
     .bundle-collection__summary-title,
@@ -384,7 +438,7 @@
     }
 
     .bundle-collection__summary-copy {
-      margin: 12px 0 0;
+      margin: 8px 0 0;
     }
 
     .bundle-collection__offers {
@@ -397,7 +451,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 12px 14px;
+      padding: 7px 14px;
       border: 1px solid var(--bundle-border);
       border-radius: 14px;
       background: #fff;
@@ -466,15 +520,16 @@
     .bundle-collection__card-body {
       display: grid;
       gap: 8px;
-      padding: 12px 6px;
+      padding:0;
     }
 
     .bundle-collection__card-title {
       color: var(--bundle-text);
       text-decoration: none;
-      font-size: 15px;
-      font-weight: 700;
-      line-height: 1.35;
+      font-size: 16px;
+      font-weight: 500;
+      line-height: 1;
+      padding:6px 6px 0px;
     }
 
     .bundle-collection__card-price-row,
@@ -490,8 +545,9 @@
     }
 
     .bundle-collection__card-price {
-      font-size: 15px;
-      font-weight: 700;
+      font-size: 16px;
+      font-weight: 500;
+      padding:0  6px;
     }
 
     .bundle-collection__card-compare {
@@ -504,7 +560,9 @@
     .bundle-collection__card-meta {
       margin: 0;
       color: var(--bundle-muted);
-      font-size: 12px;
+      font-size: 0px;
+      display:none;
+
     }
 
     .bundle-collection__card-toggle,
@@ -520,20 +578,28 @@
       font-weight: 800;
       cursor: pointer;
       transition: opacity 0.2s ease, transform 0.2s ease;
+   
     }
 
-
+  .bundle-collection__card-toggle{
+   border-top-right-radius: 0;
+      border-top-left-radius: 0;
+  }
 
 .bundle-collection__card-toggle {
-    min-height: 41px;
+    min-height: 40px;
     background: #040000;
     color: #fff;
     border: 1px solid var(--bundle-border);
-    border-radius: 10px;
+    border-radius: 6px;
     display: block;
     width: 100%;
     max-width: 100%;
+    border-top-right-radius: 0;
+    border-top-left-radius: 0;
+    text-transform:capitalize;
 }
+
     .bundle-collection__card.is-selected .bundle-collection__card-toggle {
       background: var(--bundle-accent);
       border-color: var(--bundle-accent);
@@ -554,14 +620,14 @@
     .bundle-collection__summary-card {
       background: rgba(255, 255, 255, 0.94);
       border: 1px solid var(--bundle-border);
-      border-radius: 20px;
-      padding: 20px;
+      border-radius:10px;
+      padding:10px 12px;
       box-shadow: var(--bundle-shadow);
     }
 
     .bundle-collection__status {
-      margin: 14px 0 12px;
-      padding: 10px 12px;
+      margin: 6px 0 8px;
+      padding: 6px 14px;
       border-radius: 10px;
       background: var(--bundle-accent-soft);
       border: 1px solid var(--bundle-accent);
@@ -571,18 +637,26 @@
 
     .bundle-collection__progress {
       margin: 0 0 16px;
-      padding: 14px;
+      padding:10px 14px;
       border-radius: 16px;
       background: #fff;
       border: 1px solid var(--bundle-border);
     }
 
     .bundle-collection__progress-steps {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin-bottom: 12px;
-    }
+  display: grid;
+
+  {% if show_offer_2_fixed and show_offer_3_fixed %}
+    grid-template-columns: repeat(3, 1fr);
+  {% elsif show_offer_2_fixed %}
+    grid-template-columns: repeat(2, 1fr);
+  {% else %}
+    grid-template-columns: repeat(1, 1fr); /* or repeat(3, 1fr) if that's what you want */
+  {% endif %}
+
+  gap: 10px;
+  margin-bottom: 8px;
+}
 
     .bundle-collection__progress-steps span {
       display: flex;
@@ -605,7 +679,7 @@
 
     .bundle-collection__progress-text {
       margin: 0;
-      font-size: 13px;
+      font-size: 12px;
       color: var(--bundle-muted);
       text-align: center;
     }
@@ -624,7 +698,7 @@
     .bundle-collection__selected-item {
       border-radius: 16px;
       border: 1px dashed var(--bundle-border);
-      padding: 12px 14px;
+      padding: 10px 14px;
       background: rgba(255, 255, 255, 0.76);
     }
 
@@ -733,9 +807,45 @@
 
     .bundle-collection__empty {
       padding: 28px;
-      border-radius: 20px;
+      border-radius: 8px;
       background: rgba(255, 255, 255, 0.75);
       border: 1px solid var(--bundle-border);
+    }
+
+    .bundle-collection__pagination {
+      display: grid;
+      gap: 12px;
+      justify-items: center;
+      margin-top: 22px;
+      text-align: center;
+    }
+
+    .bundle-collection__pagination-copy {
+      margin: 0;
+      color: var(--bundle-muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .bundle-collection__pagination-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0 20px;
+      border-radius: 999px;
+      border: 1px solid var(--bundle-border);
+      background: #fff;
+      color: var(--bundle-text);
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .bundle-collection__pagination-link:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
     }
 
     .bundle-collection__modal[hidden] {
@@ -942,15 +1052,54 @@
         padding: 0;
         background: transparent;
         gap: 0;
+        position: relative;
       }
 
       .bundle-collection__selected-main {
         gap: 0;
       }
 
-      .bundle-collection__selected-copy,
-      .bundle-collection__selected-side {
+      .bundle-collection__selected-copy {
         display: none;
+      }
+
+      .bundle-collection__selected-side {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1;
+      }
+
+      .bundle-collection__selected-side strong {
+        display: none;
+      }
+
+      .bundle-collection__selected-remove {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        min-width: 22px;
+        padding: 0;
+        border-radius: 999px;
+        border: 0;
+        background: rgba(17, 24, 39, 0.9);
+        color: transparent;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.24);
+      }
+
+      .bundle-collection__selected-remove::before {
+        content: 'x';
+        color: #fff;
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 1;
+        position: absolute;
       }
 
       .bundle-collection__selected-thumb,
@@ -1328,7 +1477,7 @@
             <div class="bundle-collection__selected-main">
               ${item.image ? `<img class="bundle-collection__selected-thumb" src="${item.image}" alt="${item.productTitle}">` : '<div class="bundle-collection__selected-thumb"></div>'}
               <div class="bundle-collection__selected-copy">
-                <strong>${item.productTitle}</strong>
+                <strong>${item.productTitle.slice(0, 24)}..</strong>
                 <p>${item.variantTitle}</p>
               </div>
             </div>
@@ -1746,17 +1895,18 @@
       "default": 999
     },
     {
-      "type": "number",
-      "id": "offer_2_fixed_price",
-      "label": "2-item fixed price",
-      "default": 799
-    },
-    {
       "type": "checkbox",
       "id": "show_offer_2_fixed",
       "label": "Show 2-item fixed price",
       "default": true
     },
+    {
+      "type": "number",
+      "id": "offer_2_fixed_price",
+      "label": "2-item fixed price",
+      "default": 799
+    },
+    
     {
       "type": "checkbox",
       "id": "show_offer_3_percent",
@@ -1816,7 +1966,7 @@
       "min": 2,
       "max": 4,
       "step": 1,
-      "default": 3
+      "default": 4
     },
     {
       "type": "range",
@@ -1888,7 +2038,13 @@
       "id": "border_color",
       "label": "Border color",
       "default": "#e7ddd0"
-    }
+    },
+    {
+      "type": "text",
+      "id": "Product_label",
+      "label": "Product label",
+      "default": "Bundle Offer"
+    },
   ]
 }
 {% endschema %}
