@@ -1,3 +1,4 @@
+/* global process */
 import { useEffect, useState } from "react";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { Form, useActionData, useLoaderData } from "react-router";
@@ -9,7 +10,11 @@ export const loader = async ({ request }) => {
   const shop = url.searchParams.get("shop") || "";
   const errors = loginErrorMessage(await login(request));
 
-  return { errors, shop };
+  return {
+    apiKey: process.env.SHOPIFY_API_KEY || "",
+    errors,
+    shop,
+  };
 };
 
 export const action = async ({ request }) => {
@@ -33,7 +38,7 @@ export default function Auth() {
   }, [actionData?.shop, loaderData.shop]);
 
   return (
-    <AppProvider embedded={false}>
+    <AppProvider embedded={false} apiKey={loaderData.apiKey}>
       <s-page>
         <Form method="post">
           <s-section heading="Log in">
