@@ -1,9 +1,21 @@
 import { redirect, Form, useLoaderData } from "react-router";
-import { login } from "../../shopify.server";
+import { boundary } from "@shopify/shopify-app-react-router/server";
+import { authenticate, login } from "../../shopify.server";
 import styles from "./styles.module.css";
 
 export const loader = async ({ request }) => {
   const url = new URL(request.url);
+  const isEmbeddedEntry =
+    url.searchParams.get("embedded") === "1" ||
+    url.searchParams.has("host") ||
+    url.searchParams.has("id_token") ||
+    url.pathname.startsWith("/apps/");
+
+  if (isEmbeddedEntry) {
+    const { redirect: shopifyRedirect } = await authenticate.admin(request);
+
+    return shopifyRedirect("/app");
+  }
 
   if (url.searchParams.get("shop")) {
     throw redirect(`/auth/login?${url.searchParams.toString()}`);
@@ -53,3 +65,7 @@ export default function App() {
     </div>
   );
 }
+
+export const headers = (headersArgs) => {
+  return boundary.headers(headersArgs);
+};

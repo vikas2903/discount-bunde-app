@@ -1,5 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useMemo, useState } from "react";
+import { useRevalidator } from "react-router";
 import { DEFAULT_BUNDLE_CONFIG } from "../../utils/bundle-discount";
 
 export function BundleDiscountForm({
@@ -10,6 +11,7 @@ export function BundleDiscountForm({
   loading = false,
   error,
 }) {
+  const revalidator = useRevalidator();
   const initialValues = useMemo(
     () => ({
       title: defaultValues?.title || "Bundle Discount",
@@ -558,6 +560,7 @@ export function BundleDiscountForm({
   }
 
   function openCollectionPicker() {
+    revalidator.revalidate();
     setDraftSelectedCollectionIds(selectedCollectionIds);
     setCollectionSearch("");
     setIsCollectionPickerOpen(true);

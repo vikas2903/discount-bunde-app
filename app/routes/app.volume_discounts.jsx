@@ -19,10 +19,12 @@ import {
   parseVolumeConfig,
   validateVolumeConfig,
 } from "../utils/volume-discount";
+import { getMissingCollectionScopeMessage } from "../utils/bundle-discount";
 
 export const loader = async ({ request }) => {
   const { admin, billing, session } = await authenticate.admin(request);
   await requireSubscription(billing, request, session.shop);
+  const missingScopeMessage = getMissingCollectionScopeMessage(session.scope);
   const [collectionsResult, discountsResult] = await Promise.allSettled([
     getVolumeCollections(admin),
     listVolumeDiscounts(admin),
@@ -36,6 +38,7 @@ export const loader = async ({ request }) => {
     discounts:
       discountsResult.status === "fulfilled" ? discountsResult.value.discounts : [],
     loadError: [
+      missingScopeMessage,
       ...(collectionsResult.status === "rejected"
         ? [toErrorMessage(collectionsResult.reason)]
         : collectionsResult.value.graphqlErrors.map(({ message }) => message)),

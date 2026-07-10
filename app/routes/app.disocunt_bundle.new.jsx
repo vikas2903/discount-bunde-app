@@ -14,6 +14,7 @@ import {
 import { authenticate } from "../shopify.server";
 import {
   buildBundleConfig,
+  getMissingCollectionScopeMessage,
   toErrorMessage,
   toIsoDateTime,
   validateBundleConfig,
@@ -23,11 +24,18 @@ import { requireSubscription } from "../utils/billing.server";
 export const loader = async ({ request }) => {
   const { admin, billing, session } = await authenticate.admin(request);
   await requireSubscription(billing, request, session.shop);
+  const missingScopeMessage = getMissingCollectionScopeMessage(session.scope);
   const { collections, graphqlErrors } = await getBundleCollections(admin);
 
   return {
     collections,
-    loadError: graphqlErrors.map(({ message }) => message).join(" | ") || null,
+    loadError:
+      [
+        missingScopeMessage,
+        ...graphqlErrors.map(({ message }) => message),
+      ]
+        .filter(Boolean)
+        .join(" | ") || null,
   };
 };
 

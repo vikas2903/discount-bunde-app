@@ -8,12 +8,16 @@ import {
   toggleBundleDiscountStatus,
 } from "../services/bundle-discount.server";
 import { authenticate } from "../shopify.server";
-import { toErrorMessage } from "../utils/bundle-discount";
+import {
+  getMissingCollectionScopeMessage,
+  toErrorMessage,
+} from "../utils/bundle-discount";
 import { requireSubscription } from "../utils/billing.server";
 
 export const loader = async ({ request }) => {
   const { admin, billing, session } = await authenticate.admin(request);
   await requireSubscription(billing, request, session.shop);
+  const missingScopeMessage = getMissingCollectionScopeMessage(session.scope);
   const [collectionsResult, discountsResult] = await Promise.allSettled([
     getBundleCollections(admin),
     listBundleDiscounts(admin),
@@ -26,6 +30,7 @@ export const loader = async ({ request }) => {
   const discounts =
     discountsResult.status === "fulfilled" ? discountsResult.value.discounts : [];
   const loadErrors = [
+    missingScopeMessage,
     ...(collectionsResult.status === "rejected"
       ? [toErrorMessage(collectionsResult.reason)]
       : collectionsResult.value.graphqlErrors.map(({ message }) => message)),
