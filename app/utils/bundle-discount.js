@@ -162,21 +162,6 @@ export function toErrorMessage(error) {
   return String(error);
 }
 
-export function getMissingCollectionScopeMessage(scopeValue) {
-  const scopes = new Set(
-    String(scopeValue || "")
-      .split(",")
-      .map((scope) => scope.trim())
-      .filter(Boolean),
-  );
-
-  if (scopes.has("read_products")) {
-    return null;
-  }
-
-  return "This app session is missing the `read_products` scope, so Shopify collections cannot be loaded. Uninstall and reinstall the app on this development store to refresh scopes.";
-}
-
 function normalizeCollectionId(value) {
   if (/^\d+$/.test(value)) {
     return { valid: true, id: `gid://shopify/Collection/${value}` };

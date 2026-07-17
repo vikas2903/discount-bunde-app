@@ -34,7 +34,7 @@ export async function checkSubscription(billing) {
 
 function buildReturnUrl(request, shop) {
   const requestUrl = new URL(request.url);
-  const returnUrl = new URL("/app/billing", requestUrl.origin);
+  const returnUrl = new URL("/app", requestUrl.origin);
 
   // Preserve the shop and embed context so Shopify can re-enter the app cleanly
   // after the hosted billing approval page closes.

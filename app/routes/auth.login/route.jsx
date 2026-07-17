@@ -5,9 +5,13 @@ import { Form, useActionData, useLoaderData } from "react-router";
 import { login } from "../../shopify.server";
 import { loginErrorMessage } from "./error.server";
 
+function normalizeShop(shop) {
+  return shop.trim().replace(/^https?:\/\//i, "").replace(/\/$/, "");
+}
+
 export const loader = async ({ request }) => {
   const url = new URL(request.url);
-  const shop = url.searchParams.get("shop") || "";
+  const shop = normalizeShop(url.searchParams.get("shop") || "");
   const errors = loginErrorMessage(await login(request));
 
   return {
@@ -19,11 +23,19 @@ export const loader = async ({ request }) => {
 
 export const action = async ({ request }) => {
   const formData = await request.clone().formData();
-  const errors = loginErrorMessage(await login(request));
+  const shop = normalizeShop(String(formData.get("shop") || ""));
+  formData.set("shop", shop);
+
+  const normalizedRequest = new Request(request.url, {
+    method: request.method,
+    body: formData,
+  });
+
+  const errors = loginErrorMessage(await login(normalizedRequest));
 
   return {
     errors,
-    shop: String(formData.get("shop") || ""),
+    shop,
   };
 };
 
@@ -52,16 +64,34 @@ export default function Auth() {
                 `myshopify.com` store domain below to continue.
               </s-paragraph>
             </s-stack>
-            <s-text-field
-              name="shop"
-              label="Shop domain"
-              details="example.myshopify.com"
-              value={shop}
-              onChange={(e) => setShop(e.currentTarget.value)}
-              autocomplete="on"
-              error={errors?.shop}
-            ></s-text-field>
-            <s-button type="submit">Log in</s-button>
+            <label>
+              <s-text>Shop domain</s-text>
+              <input
+                name="shop"
+                type="text"
+                value={shop}
+                onChange={(event) => setShop(event.currentTarget.value)}
+                autoComplete="on"
+                placeholder="example.myshopify.com"
+                aria-invalid={errors?.shop ? "true" : undefined}
+                aria-describedby={errors?.shop ? "shop-error" : undefined}
+                style={{
+                  boxSizing: "border-box",
+                  display: "block",
+                  marginTop: "0.5rem",
+                  width: "100%",
+                  padding: "0.75rem",
+                  border: "1px solid #8a8a8a",
+                  borderRadius: "0.5rem",
+                }}
+              />
+            </label>
+            {errors?.shop ? (
+              <s-text id="shop-error" tone="critical">
+                {errors.shop}
+              </s-text>
+            ) : null}
+            <button type="submit">Log in</button>
           </s-section>
         </Form>
       </s-page>

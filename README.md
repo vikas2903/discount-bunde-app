@@ -25,8 +25,10 @@ shopify app init --template=https://github.com/Shopify/shopify-app-template-reac
 ### Local Development
 
 ```shell
-shopify app dev
+npm run dev
 ```
+
+This project runs `prisma generate` and `prisma migrate deploy` automatically before `dev` and `start`, so the SQLite session table is created before Shopify auth runs.
 
 Press P to open the URL to your app. Once you click install, you can start development.
 
@@ -139,6 +141,7 @@ The table `main.Session` does not exist in the current database.
 ```
 
 Create the database for Prisma. Run the `setup` script in `package.json` using `npm`, `yarn` or `pnpm`.
+If you ever see the session-table error again, run `npm run setup` once before starting the app.
 
 ### Navigating/redirecting breaks an embedded app
 
