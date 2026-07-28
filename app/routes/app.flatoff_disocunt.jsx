@@ -169,10 +169,10 @@ export const action = async ({ request }) => {
   const percentage = toPositiveNumber(formData.get("percentage"), 10);
   const message =
     String(formData.get("message") || "").trim() ||
-    "Flat percentage discount applied";
+    "Your percentage saving has been applied";
   const title =
     String(formData.get("title") || "").trim() ||
-    `Flat ${percentage}% Off`;
+    `${percentage}% off`;
 
   const config = {
     discountType: "flat_percentage",
@@ -253,11 +253,10 @@ export default function FlatPercentageDiscountPage() {
   const toggleFetcher = useFetcher();
   const shopify = useAppBridge();
   const { discounts, discountsError } = useLoaderData();
-  const latestResponse = toggleFetcher.data || createFetcher.data;
 
   useEffect(() => {
     if (createFetcher.data?.ok) {
-      shopify.toast.show("Flat percentage discount created");
+      shopify.toast.show("Percentage offer created");
     }
   }, [createFetcher.data?.ok, shopify]);
 
@@ -265,15 +264,15 @@ export default function FlatPercentageDiscountPage() {
     if (toggleFetcher.data?.ok) {
       shopify.toast.show(
         toggleFetcher.data?.nextStatus === "disable"
-          ? "Flat percentage discount disabled"
-          : "Flat percentage discount enabled",
+          ? "Percentage offer turned off"
+          : "Percentage offer turned on",
       );
     }
   }, [shopify, toggleFetcher.data]);
 
   return (
-    <s-page heading="Flat percentage discounts">
-      <s-section heading="Create flat percentage discount">
+    <s-page heading="Percentage offers">
+      <s-section heading="Create a percentage offer">
         <s-stack direction="block" gap="base">
           <s-box
             padding="base"
@@ -282,14 +281,14 @@ export default function FlatPercentageDiscountPage() {
             background="subdued"
           >
             <s-stack direction="block" gap="tight">
-              <s-heading>How this discount works</s-heading>
+              <s-heading>How this offer works</s-heading>
               <s-paragraph>
-                This discount applies one percentage value to every eligible cart
-                line handled by this function.
+                This offer takes the same percentage off every eligible product
+                in the shopping cart.
               </s-paragraph>
               <s-paragraph>
-                Use this for simple store-wide product offers like 10% off, 15%
-                off, or 20% off.
+                Use it for simple store-wide sales, such as 10% off, 15% off,
+                or 20% off.
               </s-paragraph>
             </s-stack>
           </s-box>
@@ -300,41 +299,23 @@ export default function FlatPercentageDiscountPage() {
 
               <s-box padding="base" borderWidth="base" borderRadius="base">
                 <s-stack direction="block" gap="base">
-                  <s-heading>Discount settings</s-heading>
+                  <s-heading>Offer details</s-heading>
                   <s-text-field
-                    label="Discount title"
+                    label="Offer name"
                     name="title"
-                    defaultValue="Flat 10% Off"
+                    defaultValue="10% off"
                   />
                   <s-text-field
-                    label="Discount percentage"
+                    label="Percentage to take off"
                     name="percentage"
                     type="number"
                     defaultValue="10"
                   />
                   <s-text-field
-                    label="Customer message"
+                    label="Message for shoppers"
                     name="message"
-                    defaultValue="Flat percentage discount applied"
+                    defaultValue="Your percentage saving has been applied"
                   />
-                </s-stack>
-              </s-box>
-
-              <s-box padding="base" borderWidth="base" borderRadius="base">
-                <s-stack direction="block" gap="tight">
-                  <s-heading>Configuration preview</s-heading>
-                  <s-paragraph>
-                    This page saves a JSON config in the discount metafield.
-                    The Shopify Function reads that config later during cart
-                    calculation.
-                  </s-paragraph>
-                  <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>
-                    <code>{`{
-  "discountType": "flat_percentage",
-  "percentage": 10,
-  "message": "Flat percentage discount applied"
-}`}</code>
-                  </pre>
                 </s-stack>
               </s-box>
 
@@ -343,17 +324,17 @@ export default function FlatPercentageDiscountPage() {
                 variant="primary"
                 loading={createFetcher.state !== "idle"}
               >
-                Create flat percentage discount
+                Create offer
               </s-button>
             </s-stack>
           </createFetcher.Form>
         </s-stack>
       </s-section>
 
-      <s-section heading="Saved flat percentage discounts">
+      <s-section heading="Your percentage offers">
         {discountsError ? (
           <s-paragraph>
-            Saved flat percentage discounts could not be loaded: {discountsError}
+            Your saved percentage offers could not be loaded: {discountsError}
           </s-paragraph>
         ) : discounts.length > 0 ? (
           <s-stack direction="block" gap="base">
@@ -375,19 +356,18 @@ export default function FlatPercentageDiscountPage() {
                 >
                   <s-stack direction="block" gap="tight">
                     <s-heading>{discount.title}</s-heading>
-                    <s-paragraph>Status: {discount.status}</s-paragraph>
+                    <s-paragraph>Status: {isActive ? "On" : "Off"}</s-paragraph>
                     <s-paragraph>
-                      Type: Flat percentage product discount
+                      Applies to: All products
                     </s-paragraph>
                     <s-paragraph>
-                      Percentage: {discount.config.percentage}%
+                      Saving: {discount.config.percentage}% off
                     </s-paragraph>
-                    <s-paragraph>Message: {discount.config.message}</s-paragraph>
-                    <s-paragraph>Starts at: {discount.startsAt}</s-paragraph>
+                    <s-paragraph>Shopper message: {discount.config.message}</s-paragraph>
+                    <s-paragraph>Starts: {discount.startsAt}</s-paragraph>
                     <s-paragraph>
-                      Ends at: {discount.endsAt || "No end date"}
+                      Ends: {discount.endsAt || "No end date"}
                     </s-paragraph>
-                    <s-paragraph>Discount ID: {discount.discountId}</s-paragraph>
 
                     <toggleFetcher.Form method="post">
                       <input type="hidden" name="intent" value="toggle-status" />
@@ -406,7 +386,7 @@ export default function FlatPercentageDiscountPage() {
                         variant="secondary"
                         loading={isToggling}
                       >
-                        {isActive ? "Disable" : "Enable"}
+                        {isActive ? "Turn off" : "Turn on"}
                       </s-button>
                     </toggleFetcher.Form>
                   </s-stack>
@@ -416,19 +396,12 @@ export default function FlatPercentageDiscountPage() {
           </s-stack>
         ) : (
           <s-paragraph>
-            No saved flat percentage discounts yet. Create one above and it will
-            appear here with its status and metafield configuration.
+            You have not created a percentage offer yet. Create one above and
+            it will appear here.
           </s-paragraph>
         )}
       </s-section>
 
-      {latestResponse && (
-        <s-section heading={latestResponse.ok ? "Save response" : "GraphQL response"}>
-          <pre style={{ margin: 0, whiteSpace: "pre-wrap" }}>
-            <code>{JSON.stringify(latestResponse, null, 2)}</code>
-          </pre>
-        </s-section>
-      )}
     </s-page>
   );
 }
@@ -437,7 +410,7 @@ function parseFlatPercentageConfig(value) {
   const fallback = {
     discountType: "flat_percentage",
     percentage: 10,
-    message: "Flat percentage discount applied",
+    message: "Your percentage saving has been applied",
   };
 
   if (!value) {

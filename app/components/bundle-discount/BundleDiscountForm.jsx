@@ -103,16 +103,16 @@ export function BundleDiscountForm({
           <s-stack direction="block" gap="base">
             <SectionIntro
               step="1"
-              title="Discount basics"
-              description="Start with the customer-facing details shoppers will see, then choose when the offer should run."
+              title="Name your offer"
+              description="Give the offer an internal name and add the message shoppers will see at checkout. Then choose when it starts."
             />
             <s-text-field
-              label="Discount title"
+              label="Offer name"
               name="title"
               defaultValue={initialValues.title}
             />
             <s-text-field
-              label="Discount message"
+              label="Message for shoppers"
               name="message"
               defaultValue={initialValues.config.message}
             />
@@ -123,10 +123,10 @@ export function BundleDiscountForm({
               background="subdued"
             >
               <s-stack direction="block" gap="tight">
-                <s-heading>Schedule</s-heading>
+                <s-heading>When should this offer run?</s-heading>
                 <s-paragraph>
-                  Choose when this bundle starts. Add an end date only if this
-                  offer is meant to stop automatically.
+                  Choose a start date and time. Turn on an end date only when
+                  you want the offer to stop automatically.
                 </s-paragraph>
                 <div
                   style={{
@@ -161,7 +161,7 @@ export function BundleDiscountForm({
                     checked={hasEndDate}
                     onChange={(event) => setHasEndDate(event.currentTarget.checked)}
                   />
-                  <span>Set end date</span>
+                  <span>Stop this offer on a specific date</span>
                 </label>
                 {hasEndDate ? (
                   <div
@@ -203,11 +203,11 @@ export function BundleDiscountForm({
             >
               <SectionIntro
                 step="2"
-                title="Bundle tiers"
-                description="Define the quantities and fixed prices customers can unlock inside this bundle."
+                title="Set your bundle prices"
+                description="For each option, enter how many items shoppers need to buy and the total price they will pay."
               />
               <s-button type="button" variant="secondary" onClick={addTier}>
-                Add tier
+                Add another bundle option
               </s-button>
             </div>
 
@@ -232,7 +232,7 @@ export function BundleDiscountForm({
                       value={tier.price}
                     />
                     <s-text-field
-                      label={`Tier ${index + 1} quantity`}
+                      label={`Option ${index + 1}: number of items`}
                       type="number"
                       value={String(tier.quantity)}
                       onInput={(event) =>
@@ -240,7 +240,7 @@ export function BundleDiscountForm({
                       }
                     />
                     <s-text-field
-                      label={`Tier ${index + 1} bundle price`}
+                      label={`Option ${index + 1}: total bundle price`}
                       type="number"
                       value={String(tier.price)}
                       onInput={(event) =>
@@ -269,8 +269,8 @@ export function BundleDiscountForm({
           <s-stack direction="block" gap="base">
             <SectionIntro
               step="3"
-              title="Target collections"
-              description="Choose the collections this offer should apply to, or leave it open for the whole store."
+              title="Choose eligible products"
+              description="Choose collections for this offer, or leave them blank to include every product in your store."
             />
             {selectedCollectionIds.map((collectionId) => (
               <input
@@ -306,14 +306,14 @@ export function BundleDiscountForm({
                       <s-paragraph>
                         {selectedCollectionTitles.length > 0
                           ? selectedCollectionTitles.join(", ")
-                          : "No collection filter applied"}
+                          : "Every product in your store is included"}
                       </s-paragraph>
                     </s-stack>
                   </s-box>
                   <s-button type="button" variant="secondary" onClick={openCollectionPicker}>
                     {selectedCollectionTitles.length > 0
                       ? "Edit collections"
-                      : "Add collections"}
+                      : "Choose collections"}
                   </s-button>
                 </div>
 
@@ -466,26 +466,26 @@ export function BundleDiscountForm({
           background="subdued"
         >
           <s-stack direction="block" gap="base">
-            <s-heading>Setup summary</s-heading>
+            <s-heading>Your offer at a glance</s-heading>
             <div style={{ display: "grid", gap: "0.75rem" }}>
               <SummaryItem
-                label="Offer window"
+                label="When it runs"
                 value={activeWindowLabel}
                 detail={`${startDate || "Not set"} ${startTime || ""}`.trim()}
               />
               <SummaryItem
-                label="Collections"
+                label="Eligible products"
                 value={selectedCollectionTitles.length > 0 ? "Selected collections" : "All products"}
                 detail={
                   selectedCollectionTitles.length > 0
                     ? selectedCollectionTitles.join(", ")
-                    : "This bundle is not limited to a collection."
+                    : "Every product in your store can use this offer."
                 }
               />
               <SummaryItem
-                label="Customer message"
+                label="Message for shoppers"
                 value={discountMessagePreview}
-                detail="Shown when the automatic discount applies."
+                detail="Shoppers see this when the offer is applied."
               />
             </div>
           </s-stack>
@@ -498,8 +498,8 @@ export function BundleDiscountForm({
           background="subdued"
         >
           <s-stack direction="block" gap="base">
-            <s-heading>Offer preview</s-heading>
-            <s-paragraph>What this bundle discount is configured to do.</s-paragraph>
+            <s-heading>Shopper preview</s-heading>
+            <s-paragraph>This is how your offer will work for eligible products.</s-paragraph>
             <s-box padding="base" borderWidth="base" borderRadius="base">
               <s-stack direction="block" gap="tight">
                 <s-heading>{initialValues.title}</s-heading>
@@ -510,7 +510,7 @@ export function BundleDiscountForm({
                 ))}
                 <s-paragraph>Applies to: {appliesToLabel}</s-paragraph>
                 <s-paragraph>
-                  Customer message: {discountMessagePreview}
+                  Shopper message: {discountMessagePreview}
                 </s-paragraph>
               </s-stack>
             </s-box>
@@ -519,18 +519,18 @@ export function BundleDiscountForm({
 
         <s-box padding="base" borderWidth="base" borderRadius="large">
           <s-stack direction="block" gap="tight">
-            <s-heading>Tips</s-heading>
+            <s-heading>Helpful tips</s-heading>
             <s-paragraph>
-              Create separate tiers when you want different fixed prices for 2,
-              3, 4, or more items.
+              Add a separate option when you want to offer different prices for
+              2, 3, 4, or more items.
             </s-paragraph>
             <s-paragraph>
-              Keep each quantity unique inside one discount to avoid overlapping
-              rules.
+              Use each item quantity only once in an offer. For example, do not
+              add two different prices for 3 items.
             </s-paragraph>
             <s-paragraph>
-              Use collections when the offer should target only part of the
-              catalog.
+              Choose collections when the offer should apply to only some of
+              your products.
             </s-paragraph>
           </s-stack>
         </s-box>

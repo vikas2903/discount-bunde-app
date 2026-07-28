@@ -173,14 +173,14 @@ function DiscountBundleListPage() {
     if (currentAction === "toggle-status") {
       shopify.toast.show(
         actionFetcher.data?.nextStatus === "disable"
-          ? "Bundle discount disabled"
-          : "Bundle discount enabled",
+          ? "Bundle offer turned off"
+          : "Bundle offer turned on",
       );
       return;
     }
 
     if (currentAction === "delete") {
-      shopify.toast.show("Bundle discount deleted");
+      shopify.toast.show("Bundle offer deleted");
     }
   }, [actionFetcher.data, currentAction, shopify]);
 
@@ -196,7 +196,7 @@ function DiscountBundleListPage() {
             flexWrap: "wrap",
           }}
         >
-          <h1 style={{ margin: 0, fontSize: "1.6rem", fontWeight: 700 }}>Bundles</h1>
+          <h1 style={{ margin: 0, fontSize: "1.6rem", fontWeight: 700 }}>Bundle offers</h1>
           <button
             type="button"
             onClick={() => navigate("new")}
@@ -211,7 +211,7 @@ function DiscountBundleListPage() {
               boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1)",
             }}
           >
-            Create new bundles
+            Create bundle offer
           </button>
         </div>
 

@@ -15,6 +15,7 @@
   assign show_offer_2_fixed = block.settings.show_offer_2_fixed
   assign show_offer_3_percent = block.settings.show_offer_3_percent
   assign show_offer_2_percent = block.settings.show_offer_2_percent
+  assign bundle_image = block.settings.bundle_image
 -%}
 
 <section
@@ -28,6 +29,7 @@
   data-checkout-label="{{ block.settings.custom_checkout_label | escape }}"
   data-custom-checkout-script="{{ block.settings.custom_checkout_url | escape }}"
   data-default-offer="{{ default_offer }}"
+  data-total-products="{{ bundle_collection_source.products_count }}"
 >
   <div class="bundle-collection__shell page-width">
     <div class="bundle-collection__products">
@@ -37,6 +39,20 @@
         {%- endif -%}
 
         <h2 class="bundle-collection__title">{{ block.settings.heading }}</h2>
+
+        {%- if bundle_image != blank -%}
+          <div class="bundle-collection__header-media">
+            {{
+              bundle_image
+              | image_url: width: 900
+              | image_tag:
+                class: 'bundle-collection__header-image',
+                widths: '360, 540, 720, 900',
+                loading: 'lazy',
+                alt: bundle_image.alt | default: block.settings.heading
+            }}
+          </div>
+        {%- endif -%}
 
         {%- if block.settings.description != blank -%}
           <div class="bundle-collection__description rte">{{ block.settings.description }}</div>
@@ -143,15 +159,20 @@
           {%- endfor -%}
         </div>
         {%- if paginate.pages > 1 -%}
-          <div class="bundle-collection__pagination">
+          <div class="bundle-collection__pagination" data-pagination>
             <p class="bundle-collection__pagination-copy">
               Showing {{ paginate.current_offset | plus: 1 }}-{{ paginate.current_offset | plus: paginate.page_size | at_most: paginate.items }} of {{ paginate.items }} products.
             </p>
 
             {%- if paginate.next -%}
-              <a class="bundle-collection__pagination-link" href="{{ paginate.next.url }}">
+              <button
+                type="button"
+                class="bundle-collection__pagination-link"
+                data-load-more
+                data-next-url="{{ paginate.next.url | escape }}"
+              >
                 Load more products
-              </a>
+              </button>
             {%- endif -%}
           </div>
         {%- endif -%}
@@ -399,6 +420,19 @@
 
     .bundle-collection__header {
       margin-bottom: 24px;
+    }
+
+    .bundle-collection__header-media {
+      margin: 14px 0 0;
+      max-width: 240px;
+    }
+
+    .bundle-collection__header-image {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 16px;
+      object-fit: cover;
     }
 
     .bundle-collection__eyebrow,
@@ -651,7 +685,7 @@
   {% elsif show_offer_2_fixed %}
     grid-template-columns: repeat(2, 1fr);
   {% else %}
-    grid-template-columns: repeat(1, 1fr); /* or repeat(3, 1fr) if that's what you want */
+    grid-template-columns: repeat(3, 1fr); /* or repeat(3, 1fr) if that's what you want */
   {% endif %}
 
   gap: 10px;
@@ -841,6 +875,12 @@
       font-weight: 700;
       text-decoration: none;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .bundle-collection__pagination-link:disabled {
+      opacity: 0.7;
+      cursor: progress;
+      transform: none;
     }
 
     .bundle-collection__pagination-link:hover {
@@ -1235,8 +1275,11 @@
       const shopUrl = section.dataset.shopUrl || window.location.origin;
       const currencyCode = section.dataset.currencyCode || 'USD';
 
-      const cards = Array.from(section.querySelectorAll('[data-bundle-card]'));
+      let cards = Array.from(section.querySelectorAll('[data-bundle-card]'));
       const offerInputs = Array.from(section.querySelectorAll('[data-offer-input]'));
+      const grid = section.querySelector('.bundle-collection__grid');
+      const paginationCopy = section.querySelector('.bundle-collection__pagination-copy');
+      const loadMoreButton = section.querySelector('[data-load-more]');
       const regularTotalEl = section.querySelector('[data-regular-total]');
       const bundleDiscountEl = section.querySelector('[data-bundle-discount]');
       const bundleTotalEl = section.querySelector('[data-bundle-total]');
@@ -1263,6 +1306,7 @@
       let pendingVariant = null;
       let bundleOffers = [];
       let currentOffer = null;
+      const totalProducts = Number(section.dataset.totalProducts || cards.length);
 
       const formatMoney = (amountInCents) => {
         return new Intl.NumberFormat(undefined, {
@@ -1328,6 +1372,20 @@
 
       const getProductSelectedCount = (productId) => {
         return selectedItems.filter((item) => item.productId === productId).length;
+      };
+
+      const updatePaginationText = () => {
+        if (!paginationCopy) return;
+        paginationCopy.textContent = 'Showing 1-' + cards.length + ' of ' + totalProducts + ' products.';
+      };
+
+      const setLoadMoreState = (nextUrl) => {
+        if (!loadMoreButton) return;
+
+        loadMoreButton.dataset.nextUrl = nextUrl || '';
+        loadMoreButton.hidden = !nextUrl;
+        loadMoreButton.disabled = false;
+        loadMoreButton.textContent = 'Load more products';
       };
 
       const syncOfferOptions = () => {
@@ -1434,6 +1492,35 @@
         });
 
         syncModalSelectionUi();
+      };
+
+      const bindCardInteractions = (card) => {
+        const toggle = card.querySelector('[data-card-toggle]');
+        if (!toggle || toggle.dataset.bound === 'true') return;
+
+        toggle.dataset.bound = 'true';
+        toggle.addEventListener('click', () => {
+          const bundleLimit = getBundleLimit();
+
+          if (selectedItems.length >= bundleLimit) {
+            progressText.textContent = 'You can only add ' + bundleLimit + ' products for this offer.';
+            return;
+          }
+
+          if (card.dataset.hasMultipleVariants === 'true') {
+            openModal(card);
+            return;
+          }
+
+          commitSelection({
+            productId: Number(card.dataset.productId),
+            productTitle: card.dataset.productTitle,
+            image: card.dataset.productImage,
+            variantId: Number(card.dataset.defaultVariantId),
+            variantTitle: card.dataset.defaultVariantTitle,
+            price: Number(card.dataset.defaultPrice || 0)
+          });
+        });
       };
 
       const syncCards = () => {
@@ -1609,6 +1696,52 @@
         document.body.classList.remove('overflow-hidden');
       };
 
+      const loadMoreProducts = async () => {
+        if (!grid || !loadMoreButton) return;
+
+        const nextUrl = loadMoreButton.dataset.nextUrl;
+        if (!nextUrl) return;
+
+        loadMoreButton.disabled = true;
+        loadMoreButton.textContent = 'Loading...';
+
+        try {
+          const response = await fetch(nextUrl, {
+            headers: {
+              Accept: 'text/html'
+            }
+          });
+
+          if (!response.ok) {
+            throw new Error('Unable to load more products');
+          }
+
+          const html = await response.text();
+          const parsedDocument = new DOMParser().parseFromString(html, 'text/html');
+          const nextSection = parsedDocument.querySelector('.bundle-collection--{{ block.id }}');
+          const nextGrid = nextSection?.querySelector('.bundle-collection__grid');
+
+          if (!nextGrid) {
+            throw new Error('Missing bundle grid');
+          }
+
+          const newCards = Array.from(nextGrid.querySelectorAll('[data-bundle-card]'));
+          newCards.forEach((card) => {
+            grid.appendChild(card);
+            cards.push(card);
+            bindCardInteractions(card);
+          });
+
+          const nextLoadMore = nextSection.querySelector('[data-load-more]');
+          setLoadMoreState(nextLoadMore?.dataset.nextUrl || '');
+          updatePaginationText();
+          syncCards();
+        } catch (error) {
+          loadMoreButton.disabled = false;
+          loadMoreButton.textContent = 'Try again';
+        }
+      };
+
       const applyTemplateTokens = (template, bundlePrice, regularTotal) => {
         const requiredBundleCount = getRequiredBundleCount();
         const variantIds = selectedItems.map((item) => item.variantId).join(',');
@@ -1673,33 +1806,13 @@
         executeCheckout(payload, window, document);
       };
 
-      cards.forEach((card) => {
-        const toggle = card.querySelector('[data-card-toggle]');
-        if (!toggle) return;
+      cards.forEach(bindCardInteractions);
 
-        toggle.addEventListener('click', () => {
-          const bundleLimit = getBundleLimit();
-
-          if (selectedItems.length >= bundleLimit) {
-            progressText.textContent = 'You can only add ' + bundleLimit + ' products for this offer.';
-            return;
-          }
-
-          if (card.dataset.hasMultipleVariants === 'true') {
-            openModal(card);
-            return;
-          }
-
-          commitSelection({
-            productId: Number(card.dataset.productId),
-            productTitle: card.dataset.productTitle,
-            image: card.dataset.productImage,
-            variantId: Number(card.dataset.defaultVariantId),
-            variantTitle: card.dataset.defaultVariantTitle,
-            price: Number(card.dataset.defaultPrice || 0)
-          });
-        });
-      });
+      if (loadMoreButton) {
+        loadMoreButton.addEventListener('click', loadMoreProducts);
+        setLoadMoreState(loadMoreButton.dataset.nextUrl || '');
+        updatePaginationText();
+      }
 
       modalOptions.addEventListener('click', (event) => {
         const option = event.target.closest('[data-option-index]');
@@ -2040,11 +2153,16 @@
       "default": "#e7ddd0"
     },
     {
+      "type": "image_picker",
+      "id": "bundle_image",
+      "label": "Header image"
+    },
+    {
       "type": "text",
       "id": "Product_label",
       "label": "Product label",
       "default": "Bundle Offer"
-    },
+    }
   ]
 }
 {% endschema %}

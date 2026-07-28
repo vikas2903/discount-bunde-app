@@ -100,31 +100,31 @@ export default function VolumeDiscountForm({
       <s-stack direction="block" gap="base">
         <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
           <s-stack direction="block" gap="tight">
-            <s-heading>How this volume discount works</s-heading>
-            <s-paragraph>1. Name the discount and optional customer message.</s-paragraph>
-            <s-paragraph>2. Choose collections, or leave blank for all products.</s-paragraph>
-            <s-paragraph>3. Add tiers like 2 qty = 5% off, 3 qty = 15% off.</s-paragraph>
-            <s-paragraph>4. Save, update, deactivate, or delete from the dashboard below.</s-paragraph>
+            <s-heading>How this offer works</s-heading>
+            <s-paragraph>1. Name the offer and add an optional message for shoppers.</s-paragraph>
+            <s-paragraph>2. Choose products, or leave this blank to include your whole store.</s-paragraph>
+            <s-paragraph>3. Set savings for different quantities, such as buy 2 and save 5%, or buy 3 and save 15%.</s-paragraph>
+            <s-paragraph>4. Save the offer. You can turn it on, turn it off, or edit it later.</s-paragraph>
           </s-stack>
         </s-box>
 
         <s-text-field
-          label="Discount title"
+          label="Offer name"
           value={form.title}
           onInput={(event) => updateField("title", getEventValue(event))}
         />
 
         <s-text-field
-          label="Customer message"
+          label="Message for shoppers"
           value={form.message}
           onInput={(event) => updateField("message", getEventValue(event))}
         />
 
         <s-box padding="base" borderWidth="base" borderRadius="base">
           <s-stack direction="block" gap="base">
-            <s-heading>Volume tiers</s-heading>
+            <s-heading>Set quantity savings</s-heading>
             <s-paragraph>
-              Add each tier quantity to discount. If cart quantity is higher, the best matching tier discounts only that many items in the line.
+              Add one option for each quantity you want to reward. When a shopper qualifies for more than one option, they receive the best matching saving.
             </s-paragraph>
 
             {form.tiers.map((tier, index) => (
@@ -142,7 +142,7 @@ export default function VolumeDiscountForm({
                     alignItems="center"
                     justifyContent="space-between"
                   >
-                    <s-heading>Tier {index + 1}</s-heading>
+                    <s-heading>Saving option {index + 1}</s-heading>
                     <s-button
                       type="button"
                       variant="tertiary"
@@ -155,7 +155,7 @@ export default function VolumeDiscountForm({
 
                   <s-stack direction="inline" gap="tight">
                     <s-text-field
-                      label="Tier quantity"
+                      label="Number of items to buy"
                       type="number"
                       value={String(tier.minQty)}
                       onInput={(event) =>
@@ -164,7 +164,7 @@ export default function VolumeDiscountForm({
                     />
 
                     <s-text-field
-                      label="Percentage off"
+                      label="Saving percentage"
                       type="number"
                       value={String(tier.discountValue)}
                       onInput={(event) =>
@@ -181,30 +181,30 @@ export default function VolumeDiscountForm({
             ))}
 
             <s-button type="button" variant="secondary" onClick={addTier}>
-              Add tier
+              Add another saving option
             </s-button>
           </s-stack>
         </s-box>
 
         <s-box padding="base" borderWidth="base" borderRadius="base">
           <s-stack direction="block" gap="base">
-            <s-heading>Target collections</s-heading>
+            <s-heading>Choose eligible products</s-heading>
             <s-paragraph>
-              Leave this empty to apply the discount to all products. Select collections to limit the offer.
+              Leave this blank to include every product in your store. Choose collections to limit the offer to certain products.
             </s-paragraph>
 
             <s-text-field
-              label="Search collections"
+              label="Find collections"
               value={collectionSearch}
               onInput={(event) => setCollectionSearch(getEventValue(event))}
             />
 
             {selectedCollectionTitles.length > 0 ? (
               <s-paragraph>
-                Selected: {selectedCollectionTitles.join(", ")}
+                Included collections: {selectedCollectionTitles.join(", ")}
               </s-paragraph>
             ) : (
-              <s-paragraph>No collection selected. This will work on all products.</s-paragraph>
+              <s-paragraph>No collections selected. Every product in your store is included.</s-paragraph>
             )}
 
             <s-stack direction="block" gap="tight">
@@ -249,11 +249,11 @@ export default function VolumeDiscountForm({
 
         <s-stack direction="inline" gap="tight">
           <s-button type="submit" variant="primary" loading={isSaving}>
-            {isEditing ? "Update volume discount" : "Create volume discount"}
+            {isEditing ? "Save changes" : "Create offer"}
           </s-button>
           {isEditing ? (
             <s-button type="button" variant="secondary" onClick={onCancelEdit}>
-              Cancel edit
+              Cancel
             </s-button>
           ) : null}
         </s-stack>

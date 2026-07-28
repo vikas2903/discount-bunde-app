@@ -77,7 +77,7 @@ export function parseVolumeConfig(value) {
 
 export function normalizeVolumeConfig(config) {
   return {
-    title: String(config?.title || "").trim() || "Volume discount",
+    title: String(config?.title || "").trim() || "Quantity offer",
     message:
       String(config?.message || "").trim() || DEFAULT_VOLUME_CONFIG.message,
     status:

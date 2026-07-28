@@ -258,9 +258,9 @@ export default function VolumeDiscountsPage() {
     }
 
     if (formFetcher.data.action === "update") {
-      shopify.toast.show("Volume discount updated");
+      shopify.toast.show("Quantity offer updated");
     } else {
-      shopify.toast.show("Volume discount created");
+      shopify.toast.show("Quantity offer created");
     }
 
     setForm(INITIAL_FORM);
@@ -275,7 +275,7 @@ export default function VolumeDiscountsPage() {
     }
 
     if (actionFetcher.data.action === "delete") {
-      shopify.toast.show("Volume discount deleted");
+      shopify.toast.show("Quantity offer deleted");
       if (editingDiscountId === String(actionFetcher.formData?.get("discountId") || "")) {
         setForm(INITIAL_FORM);
         setShowForm(false);
@@ -288,8 +288,8 @@ export default function VolumeDiscountsPage() {
     if (actionFetcher.data.action === "toggle-status") {
       shopify.toast.show(
         actionFetcher.data.nextStatus === "disable"
-          ? "Volume discount disabled"
-          : "Volume discount enabled",
+          ? "Quantity offer turned off"
+          : "Quantity offer turned on",
       );
     }
   }, [actionFetcher.data, actionFetcher.formData, editingDiscountId, shopify]);
@@ -345,7 +345,7 @@ export default function VolumeDiscountsPage() {
           }}
         >
           <h1 style={{ margin: 0, fontSize: "1.6rem", fontWeight: 700 }}>
-            Volume discounts
+            Quantity-based offers
           </h1>
           <button
             type="button"
@@ -366,7 +366,7 @@ export default function VolumeDiscountsPage() {
               boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1)",
             }}
           >
-            Create new volume discount
+            Create quantity offer
           </button>
         </div>
 
@@ -383,8 +383,8 @@ export default function VolumeDiscountsPage() {
         {showForm && overlapWarnings.length > 0 ? (
           <s-banner tone="warning">
             <s-paragraph>
-              Warning: this discount overlaps with other active volume discounts.
-              Review these before saving to avoid unexpected cart discounts.
+              This offer includes products that are already covered by an active quantity offer.
+              Review the offers below before saving so shoppers do not receive an unexpected saving.
             </s-paragraph>
             <div style={{ display: "grid", gap: "0.35rem", marginTop: "0.6rem" }}>
               {overlapWarnings.map((warning) => (
@@ -573,7 +573,7 @@ export default function VolumeDiscountsPage() {
 
         {showForm ? (
           <s-section
-            heading={editingDiscount ? "Update volume discount" : "Create volume discount"}
+            heading={editingDiscount ? "Edit quantity offer" : "Create quantity offer"}
           >
             <VolumeDiscountForm
               fetcher={formFetcher}

@@ -8,7 +8,7 @@ export const DEFAULT_BUNDLE_CONFIG = {
     { quantity: 3, price: 999 },
   ],
   selectedCollectionIds: [],
-  message: "Bundle Discount Applied",
+  message: "Your bundle saving has been applied",
 };
 
 export function parseCollectionIds(value) {
