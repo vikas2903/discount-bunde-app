@@ -34,7 +34,10 @@ export async function checkSubscription(billing) {
 
 function buildReturnUrl(request, shop) {
   const requestUrl = new URL(request.url);
-  const returnUrl = new URL("/app", requestUrl.origin);
+  // Use the configured public app URL. This prevents Shopify billing from
+  // returning to an old deployment hostname after an app URL change.
+  const appUrl = process.env.SHOPIFY_APP_URL || requestUrl.origin;
+  const returnUrl = new URL("/app", appUrl);
 
   // Preserve the shop and embed context so Shopify can re-enter the app cleanly
   // after the hosted billing approval page closes.

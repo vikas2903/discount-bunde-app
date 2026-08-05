@@ -21,11 +21,13 @@ import {
   toIsoDateTime,
   validateBundleConfig,
 } from "../utils/bundle-discount";
-import { requireProSubscription } from "../utils/billing.server";
+import { checkSubscription } from "../utils/billing.server";
 
 export const loader = async ({ request, params }) => {
-  const { admin, billing, session } = await authenticate.admin(request);
-  await requireProSubscription(billing, request, session.shop);
+  const { admin, billing, redirect } = await authenticate.admin(request);
+  if (!(await checkSubscription(billing))) {
+    return redirect("/app/billing");
+  }
   const [collectionsResult, discountResult] = await Promise.all([
     getBundleCollections(admin),
     getBundleDiscount(admin, params.discountId),
@@ -46,8 +48,10 @@ export const loader = async ({ request, params }) => {
 };
 
 export const action = async ({ request, params }) => {
-  const { admin, billing, session, redirect } = await authenticate.admin(request);
-  await requireProSubscription(billing, request, session.shop);
+  const { admin, billing, redirect } = await authenticate.admin(request);
+  if (!(await checkSubscription(billing))) {
+    return redirect("/app/billing");
+  }
   const formData = await request.formData();
   const intent = String(formData.get("intent") || "");
 

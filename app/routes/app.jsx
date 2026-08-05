@@ -22,9 +22,11 @@ export default function App() {
   return (
     <AppProvider embedded apiKey={apiKey}>
       <s-app-nav>
-        <s-link href="/app">Overview</s-link>
-        <s-link href="/app/volume_discounts">Quantity offers</s-link>
-        <s-link href="/app/disocunt_bundle">Bundle offers {plan.isPro ? "" : "(Pro)"}</s-link>
+        <s-link href="/app">Analytics</s-link>
+        <s-link href="/app/volume_discounts">Quantity offers(Free)</s-link>
+        <s-link href={plan.isPro ? "/app/disocunt_bundle" : "/app/billing"}>
+          Bundle offers {plan.isPro ? "" : "(Pro)"}
+        </s-link>
         {/* <s-link href="/app/flatoff_disocunt">Simple sale {plan.isPro ? "" : "(Pro)"}</s-link> */}
         <s-link href="/app/help">Help & support</s-link>
         <s-link href="/app/billing">Plans & billing</s-link>

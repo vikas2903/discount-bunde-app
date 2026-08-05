@@ -1,6 +1,6 @@
 const DAYS_TO_LOAD = 30;
 
-export async function getDiscountAnalytics(admin, discountTitles = []) {
+export async function getDiscountAnalytics(admin, discountIdentifiers = []) {
   const since = new Date(Date.now() - DAYS_TO_LOAD * 24 * 60 * 60 * 1000).toISOString();
   const allNodes = [];
   let cursor = null;
@@ -50,19 +50,29 @@ export async function getDiscountAnalytics(admin, discountTitles = []) {
     cursor = edges[edges.length - 1]?.cursor || null;
   }
 
-  const knownTitles = new Set(discountTitles.map((title) => String(title).trim()).filter(Boolean));
+  const knownIdentifiers = new Set(
+    discountIdentifiers
+      .map((identifier) => String(identifier).trim().toLocaleLowerCase())
+      .filter(Boolean),
+  );
   const orders = allNodes.filter((node) => node.createdAt >= since).map((node) => {
     const applications = (node.discountApplications?.edges || []).map(({ node: application }) =>
       application.title || application.code || "Discount",
     );
+    const savings = Number(node.totalDiscountsSet?.shopMoney?.amount || 0);
+
     return {
       id: node.id,
       createdAt: node.createdAt,
       revenue: Number(node.currentTotalPriceSet?.shopMoney?.amount || 0),
-      savings: Number(node.totalDiscountsSet?.shopMoney?.amount || 0),
+      savings,
       currencyCode: node.currentTotalPriceSet?.shopMoney?.currencyCode || "USD",
-      hasDiscount: applications.length > 0,
-      usesAppDiscount: applications.some((title) => knownTitles.has(title)),
+      // The total is the reliable source for Shopify Function discounts; an
+      // order can have a savings amount even when its applications list is empty.
+      hasDiscount: savings > 0 || applications.length > 0,
+      usesAppDiscount: applications.some((identifier) =>
+        knownIdentifiers.has(String(identifier).trim().toLocaleLowerCase()),
+      ),
       applications,
     };
   });

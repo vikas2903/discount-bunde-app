@@ -82,11 +82,25 @@ export default function BillingPage() {
         <div
           style={{
             display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
             gap: "1rem",
+            alignItems: "start",
           }}
         >
           <section style={buildPlanCardStyle("#f8fafc", "#d1d5db")}>
-            <div style={planTagStyle("#334155", "#e2e8f0")}>Free</div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: "0.75rem",
+              }}
+            >
+              <div style={planTagStyle("#334155", "#e2e8f0")}>Free</div>
+              <div style={statusPillStyle(hasSubscription ? "#64748b" : "#0f766e")}>
+                {hasSubscription ? "Available" : "Current plan"}
+              </div>
+            </div>
             <div style={{ display: "grid", gap: "0.35rem" }}>
               <h3 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 800 }}>$0 / month</h3>
               <p style={mutedCopyStyle}>Use one active quantity offer at no cost. No card or trial approval is required.</p>
@@ -181,6 +195,7 @@ const planTagStyle = (color, background) => ({
   display: "inline-flex",
   alignItems: "center",
   width: "fit-content",
+  alignSelf: "start",
   padding: "0.28rem 0.6rem",
   borderRadius: "999px",
   color,

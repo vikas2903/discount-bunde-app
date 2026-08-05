@@ -1,71 +1,11 @@
-import { redirect, Form, useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
-import { authenticate, login } from "../../shopify.server";
-import styles from "./styles.module.css";
+import { authenticate } from "../../shopify.server";
 
+// Shopify opens the app at its root URL. Authenticate that launch and hand it
+// to /app, which then redirects to the Quantity offers home page.
 export const loader = async ({ request }) => {
-  const url = new URL(request.url);
-  const isEmbeddedEntry =
-    url.searchParams.get("embedded") === "1" ||
-    url.searchParams.has("host") ||
-    url.searchParams.has("id_token") ||
-    url.pathname.startsWith("/apps/");
-
-  if (isEmbeddedEntry) {
-    const { redirect: shopifyRedirect } = await authenticate.admin(request);
-
-    return shopifyRedirect("/app");
-  }
-
-  if (url.searchParams.get("shop")) {
-    throw redirect(`/auth/login?${url.searchParams.toString()}`);
-  }
-
-  return { showForm: Boolean(login) };
+  const { redirect } = await authenticate.admin(request);
+  return redirect("/app");
 };
 
-export default function App() {
-  const { showForm } = useLoaderData();
-
-  return (
-    <div className={styles.index}>
-      <div className={styles.content}>
-        <h1 className={styles.heading}>Build bundle offers for every store</h1>
-        <p className={styles.text}>
-          Discount Bundle App helps merchants create and manage automatic
-          bundle discounts from one simple dashboard.
-        </p>
-        {showForm && (
-          <Form className={styles.form} method="post" action="/auth/login">
-            <label className={styles.label}>
-              <span>Shop domain</span>
-              <input className={styles.input} type="text" name="shop" />
-              <span>e.g: my-shop-domain.myshopify.com</span>
-            </label>
-            <button className={styles.button} type="submit">
-              Log in
-            </button>
-          </Form>
-        )}
-        <ul className={styles.list}>
-          <li>
-            <strong>Create store-specific offers</strong>. Every merchant sees
-            and manages only the bundle discounts created for their own store.
-          </li>
-          <li>
-            <strong>Edit without recreating</strong>. Update bundle pricing,
-            collections, and messaging from a dedicated edit flow.
-          </li>
-          <li>
-            <strong>Control lifecycle</strong>. Disable, re-enable, or delete
-            discounts whenever a campaign changes.
-          </li>
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-export const headers = (headersArgs) => {
-  return boundary.headers(headersArgs);
-};
+export const headers = (headersArgs) => boundary.headers(headersArgs);
