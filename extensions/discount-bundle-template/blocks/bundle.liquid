@@ -218,32 +218,19 @@
               <span>Purchase 2 items @ {{ offer_2_fixed_price | times: 100 | money }}</span>
             </label>
           {%- endif -%}
-
           {%- if show_offer_3_percent -%}
             <label class="bundle-collection__offer-option{% if default_offer == 'offer_3_percent' %} is-active{% endif %}">
-              <input
-                type="radio"
-                name="bundle-offer-{{ block.id }}"
-                value="offer_3_percent"
-                data-offer-input
-                {% if default_offer == 'offer_3_percent' %}checked{% endif %}
-              >
-              <span>Purchase 3 items get {{ offer_3_percent_discount }}% off</span>
+              <input type="radio" name="bundle-offer-{{ block.id }}" value="offer_3_percent" data-offer-input {% if default_offer == 'offer_3_percent' %}checked{% endif %}>
+              <span>Purchase 3 items and get {{ offer_3_percent_discount }}% off</span>
+            </label>
+          {%- endif -%}
+          {%- if show_offer_2_percent -%}
+            <label class="bundle-collection__offer-option{% if default_offer == 'offer_2_percent' %} is-active{% endif %}">
+              <input type="radio" name="bundle-offer-{{ block.id }}" value="offer_2_percent" data-offer-input {% if default_offer == 'offer_2_percent' %}checked{% endif %}>
+              <span>Purchase 2 items and get {{ offer_2_percent_discount }}% off</span>
             </label>
           {%- endif -%}
 
-          {%- if show_offer_2_percent -%}
-            <label class="bundle-collection__offer-option{% if default_offer == 'offer_2_percent' %} is-active{% endif %}">
-              <input
-                type="radio"
-                name="bundle-offer-{{ block.id }}"
-                value="offer_2_percent"
-                data-offer-input
-                {% if default_offer == 'offer_2_percent' %}checked{% endif %}
-              >
-              <span>Purchase 2 items get {{ offer_2_percent_discount }}% off</span>
-            </label>
-          {%- endif -%}
         </div>
 
         <div class="bundle-collection__status" data-bundle-status>
@@ -1316,6 +1303,9 @@
       };
 
       const createLineId = () => Math.random().toString(36).slice(2, 10);
+      const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+      })[character]);
       const parseOffers = () => {
         try {
           bundleOffers = JSON.parse(offersJson?.textContent || '[]');
@@ -1472,7 +1462,7 @@
 
           const groupMarkup = `
             <div class="bundle-collection__option-group">
-              <p class="bundle-collection__option-title">${name}</p>
+              <p class="bundle-collection__option-title">${escapeHtml(name)}</p>
               <div class="bundle-collection__option-values">
                 ${values.map((value) => `
                   <button
@@ -1481,7 +1471,7 @@
                     data-option-index="${optionIndex}"
                     data-option-value="${String(value).replace(/"/g, '&quot;')}"
                   >
-                    ${value}
+                    ${escapeHtml(value)}
                   </button>
                 `).join('')}
               </div>
@@ -1562,10 +1552,10 @@
         const itemsMarkup = selectedItems.map((item) => `
           <div class="bundle-collection__selected-item">
             <div class="bundle-collection__selected-main">
-              ${item.image ? `<img class="bundle-collection__selected-thumb" src="${item.image}" alt="${item.productTitle}">` : '<div class="bundle-collection__selected-thumb"></div>'}
+              ${item.image ? `<img class="bundle-collection__selected-thumb" src="${escapeHtml(item.image)}" alt="${escapeHtml(item.productTitle)}">` : '<div class="bundle-collection__selected-thumb"></div>'}
               <div class="bundle-collection__selected-copy">
-                <strong>${item.productTitle.slice(0, 24)}..</strong>
-                <p>${item.variantTitle}</p>
+                <strong>${escapeHtml(item.productTitle.slice(0, 24))}..</strong>
+                <p>${escapeHtml(item.variantTitle)}</p>
               </div>
             </div>
             <div class="bundle-collection__selected-side">
@@ -2019,31 +2009,11 @@
       "label": "2-item fixed price",
       "default": 799
     },
+    { "type": "checkbox", "id": "show_offer_3_percent", "label": "Show 3-item percentage offer", "default": false },
+    { "type": "number", "id": "offer_3_percent_discount", "label": "3-item percentage off", "default": 25 },
+    { "type": "checkbox", "id": "show_offer_2_percent", "label": "Show 2-item percentage offer", "default": false },
+    { "type": "number", "id": "offer_2_percent_discount", "label": "2-item percentage off", "default": 10 },
     
-    {
-      "type": "checkbox",
-      "id": "show_offer_3_percent",
-      "label": "Show 3-item percentage off",
-      "default": true
-    },
-    {
-      "type": "number",
-      "id": "offer_3_percent_discount",
-      "label": "3-item percentage off",
-      "default": 25
-    },
-    {
-      "type": "checkbox",
-      "id": "show_offer_2_percent",
-      "label": "Show 2-item percentage off",
-      "default": true
-    },
-    {
-      "type": "number",
-      "id": "offer_2_percent_discount",
-      "label": "2-item percentage off",
-      "default": 10
-    },
     {
       "type": "select",
       "id": "checkout_mode",
@@ -2063,14 +2033,14 @@
     {
       "type": "textarea",
       "id": "custom_checkout_url",
-      "label": "Custom checkout code or URL",
-      "info": "Supports a full custom script or a direct URL. Supported placeholders: {{shop_url}}, {{shop_root}}, {{checkout_url}}, {{cart_url}}, {{bundle_total}}, {{regular_total}}, {{discount_percent}}, {{bundle_size}}, {{variant_ids}}"
+      "label": "GoKwik / Shiprocket checkout code or URL",
+      "info": "Pro only. Paste a provider-approved code snippet or URL. It runs only after items are added to Shopify cart. Supported placeholders: {{shop_url}}, {{shop_root}}, {{checkout_url}}, {{cart_url}}, {{bundle_total}}, {{regular_total}}, {{bundle_size}}, {{variant_ids}}. Never paste API keys."
     },
     {
       "type": "text",
       "id": "footer_note",
       "label": "Footer note",
-      "default": "By default this button goes to Shopify checkout. Switch to custom checkout URL if you need your own app-specific flow."
+      "default": "Your final discount is calculated securely by Shopify at cart and checkout."
     },
     {
       "type": "range",

@@ -18,11 +18,11 @@ import {
   toIsoDateTime,
   validateBundleConfig,
 } from "../utils/bundle-discount";
-import { requireSubscription } from "../utils/billing.server";
+import { requireProSubscription } from "../utils/billing.server";
 
 export const loader = async ({ request }) => {
   const { admin, billing, session } = await authenticate.admin(request);
-  await requireSubscription(billing, request, session.shop);
+  await requireProSubscription(billing, request, session.shop);
   const { collections, graphqlErrors } = await getBundleCollections(admin);
 
   return {
@@ -33,7 +33,7 @@ export const loader = async ({ request }) => {
 
 export const action = async ({ request }) => {
   const { admin, billing, session, redirect } = await authenticate.admin(request);
-  await requireSubscription(billing, request, session.shop);
+  await requireProSubscription(billing, request, session.shop);
   const formData = await request.formData();
   const { config, invalidCollectionIds } = buildBundleConfig(formData);
   const validationErrors = validateBundleConfig(

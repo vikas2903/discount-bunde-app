@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useFetcher, useLoaderData } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
-import { requireSubscription } from "../utils/billing.server";
+import { checkSubscription } from "../utils/billing.server";
 import VolumeDiscountForm from "../components/volume-discounts/VolumeDiscountForm";
 import {
   createVolumeDiscount,
@@ -21,8 +21,7 @@ import {
 } from "../utils/volume-discount";
 
 export const loader = async ({ request }) => {
-  const { admin, billing, session } = await authenticate.admin(request);
-  await requireSubscription(billing, request, session.shop);
+  const { admin } = await authenticate.admin(request);
   const [collectionsResult, discountsResult] = await Promise.allSettled([
     getVolumeCollections(admin),
     listVolumeDiscounts(admin),
@@ -49,8 +48,7 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { admin, billing, session } = await authenticate.admin(request);
-  await requireSubscription(billing, request, session.shop);
+  const { admin, billing } = await authenticate.admin(request);
   const formData = await request.formData();
   const intent = String(formData.get("intent") || "create");
 
@@ -103,7 +101,11 @@ export const action = async ({ request }) => {
   );
   const validationErrors = validateVolumeConfig(config);
   const { discounts: existingDiscounts } = await listVolumeDiscounts(admin);
+  const subscription = await checkSubscription(billing);
   const editingDiscountId = String(formData.get("discountId") || "").trim();
+  if (!subscription && intent === "create" && existingDiscounts.some((discount) => discount.status === "ACTIVE")) {
+    return createActionError(intent, "The Free plan includes one active quantity offer. Upgrade to Pro for unlimited offers.", config);
+  }
   const overlappingDiscounts = existingDiscounts.filter((discount) => {
     if (discount.status !== "ACTIVE") {
       return false;

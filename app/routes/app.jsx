@@ -3,7 +3,7 @@ import { Outlet, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
-import { checkSubscription } from "../utils/billing.server";
+import { checkSubscription, getPlanDetails } from "../utils/billing.server";
 
 export const loader = async ({ request }) => {
   const { billing } = await authenticate.admin(request);
@@ -12,24 +12,22 @@ export const loader = async ({ request }) => {
   // eslint-disable-next-line no-undef
   return {
     apiKey: process.env.SHOPIFY_API_KEY || "",
-    hasSubscription: Boolean(subscription),
+    plan: getPlanDetails(subscription),
   };
 };
 
 export default function App() {
-  const { apiKey, hasSubscription } = useLoaderData();
+  const { apiKey, plan } = useLoaderData();
 
   return (
     <AppProvider embedded apiKey={apiKey}>
       <s-app-nav>
-        {/* {hasSubscription ? <s-link href="/app">Dashboard</s-link> : null} */}
-        {hasSubscription ? (
-          <s-link href="/app/disocunt_bundle">Bundle discounts</s-link>
-        ) : null}
-        {hasSubscription ? (
-          <s-link href="/app/volume_discounts">Volume discounts</s-link>
-        ) : null}
-        <s-link href="/app/billing">Plan</s-link>
+        <s-link href="/app">Overview</s-link>
+        <s-link href="/app/volume_discounts">Quantity offers</s-link>
+        <s-link href="/app/disocunt_bundle">Bundle offers {plan.isPro ? "" : "(Pro)"}</s-link>
+        {/* <s-link href="/app/flatoff_disocunt">Simple sale {plan.isPro ? "" : "(Pro)"}</s-link> */}
+        <s-link href="/app/help">Help & support</s-link>
+        <s-link href="/app/billing">Plans & billing</s-link>
       </s-app-nav>
       <Outlet />
     </AppProvider>

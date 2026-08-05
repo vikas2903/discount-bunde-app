@@ -4,8 +4,8 @@ export const DEFAULT_FUNCTION_HANDLE = "bundle-pack-3-for-999";
 export const DEFAULT_BUNDLE_CONFIG = {
   discountType: "bundle",
   bundleTiers: [
-    { quantity: 2, price: 799 },
-    { quantity: 3, price: 999 },
+    { quantity: 2, discountType: "fixed_price", value: 799 },
+    { quantity: 3, discountType: "fixed_price", value: 999 },
   ],
   selectedCollectionIds: [],
   message: "Your bundle saving has been applied",
@@ -63,11 +63,13 @@ export function buildBundleConfig(formData) {
     invalid: invalidCollectionIds,
   } = parseCollectionIds(formData.getAll("selectedCollectionIds"));
   const bundleTierQuantities = formData.getAll("bundleTierQuantity");
-  const bundleTierPrices = formData.getAll("bundleTierPrice");
+  const bundleTierTypes = formData.getAll("bundleTierDiscountType");
+  const bundleTierValues = formData.getAll("bundleTierValue");
   const bundleTiers = normalizeBundleTiers(
     bundleTierQuantities.map((quantity, index) => ({
       quantity,
-      price: bundleTierPrices[index],
+      discountType: bundleTierTypes[index],
+      value: bundleTierValues[index],
     })),
     [],
   );
@@ -98,8 +100,12 @@ export function validateBundleConfig(config, rawTierCount = 0) {
     errors.push("Bundle quantity must be 2 or more.");
   }
 
-  if (config.bundleTiers.some((tier) => tier.price <= 0)) {
-    errors.push("Bundle price must be greater than 0.");
+  if (config.bundleTiers.some((tier) => tier.value <= 0)) {
+    errors.push("The saving amount must be greater than 0.");
+  }
+
+  if (config.bundleTiers.some((tier) => tier.discountType === "percentage" && tier.value > 100)) {
+    errors.push("Percentage off cannot be more than 100%.");
   }
 
   if (uniqueQuantityCount !== quantities.length) {
@@ -195,9 +201,11 @@ function normalizeBundleTiers(value, fallback) {
   const tiers = (Array.isArray(value) ? value : [])
     .map((tier) => ({
       quantity: toPositiveInteger(tier?.quantity, 0),
-      price: toPositiveNumber(tier?.price, 0),
+      discountType: tier?.discountType === "percentage" ? "percentage" : "fixed_price",
+      // Existing offers stored `price`; retain them as fixed-price offers.
+      value: toPositiveNumber(tier?.value ?? tier?.price, 0),
     }))
-    .filter((tier) => tier.quantity >= 2 && tier.price > 0)
+    .filter((tier) => tier.quantity >= 2 && tier.value > 0)
     .sort((left, right) => left.quantity - right.quantity)
     .filter((tier) => {
       if (seenQuantities.has(tier.quantity)) {

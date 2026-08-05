@@ -115,7 +115,7 @@ export default function VolumeDiscountForm({
         />
 
         <s-text-field
-          label="Message for shoppers"
+          label="Cart message"
           value={form.message}
           onInput={(event) => updateField("message", getEventValue(event))}
         />

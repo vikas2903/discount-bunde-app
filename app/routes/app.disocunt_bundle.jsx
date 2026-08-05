@@ -9,11 +9,11 @@ import {
 } from "../services/bundle-discount.server";
 import { authenticate } from "../shopify.server";
 import { toErrorMessage } from "../utils/bundle-discount";
-import { requireSubscription } from "../utils/billing.server";
+import { requireProSubscription } from "../utils/billing.server";
 
 export const loader = async ({ request }) => {
   const { admin, billing, session } = await authenticate.admin(request);
-  await requireSubscription(billing, request, session.shop);
+  await requireProSubscription(billing, request, session.shop);
   const [collectionsResult, discountsResult] = await Promise.allSettled([
     getBundleCollections(admin),
     listBundleDiscounts(admin),
@@ -43,7 +43,7 @@ export const loader = async ({ request }) => {
 
 export const action = async ({ request }) => {
   const { admin, billing, session } = await authenticate.admin(request);
-  await requireSubscription(billing, request, session.shop);
+  await requireProSubscription(billing, request, session.shop);
   const formData = await request.formData();
   const intent = String(formData.get("intent") || "");
 
@@ -294,8 +294,10 @@ function DiscountBundleListPage() {
                       );
                       const leadTier = sortedTiers[0];
                       const discountLabel = leadTier
-                        ? `Set price Rs. ${leadTier.price}`
-                        : "No pricing";
+                        ? leadTier.discountType === "percentage"
+                          ? `Buy ${leadTier.quantity}: ${leadTier.value}% off`
+                          : `Buy ${leadTier.quantity}: fixed price ${leadTier.value}`
+                        : "No offer details";
                       const typeLabel =
                         discountCollectionTitles.length > 0
                           ? "Mix and match"

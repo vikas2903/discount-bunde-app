@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useFetcher, useLoaderData } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
-import { requireSubscription } from "../utils/billing.server";
+import { requireProSubscription } from "../utils/billing.server";
 
 const FUNCTION_HANDLE = "bundle-pack-3-for-999";
 const FLAT_PERCENTAGE_METAFIELD_NAMESPACE = "$app:bundle-pack-3-for-999";
@@ -10,7 +10,7 @@ const FLAT_PERCENTAGE_METAFIELD_KEY = "function-configuration";
 
 export const loader = async ({ request }) => {
   const { admin, billing, session } = await authenticate.admin(request);
-  await requireSubscription(billing, request, session.shop);
+  await requireProSubscription(billing, request, session.shop);
 
   try {
     const response = await admin.graphql(
@@ -85,7 +85,7 @@ export const loader = async ({ request }) => {
 
 export const action = async ({ request }) => {
   const { admin, billing, session } = await authenticate.admin(request);
-  await requireSubscription(billing, request, session.shop);
+  await requireProSubscription(billing, request, session.shop);
   const formData = await request.formData();
   const intent = String(formData.get("intent") || "create");
 
@@ -256,7 +256,7 @@ export default function FlatPercentageDiscountPage() {
 
   useEffect(() => {
     if (createFetcher.data?.ok) {
-      shopify.toast.show("Percentage offer created");
+      shopify.toast.show("Simple sale created");
     }
   }, [createFetcher.data?.ok, shopify]);
 
@@ -264,15 +264,15 @@ export default function FlatPercentageDiscountPage() {
     if (toggleFetcher.data?.ok) {
       shopify.toast.show(
         toggleFetcher.data?.nextStatus === "disable"
-          ? "Percentage offer turned off"
-          : "Percentage offer turned on",
+          ? "Simple sale turned off"
+          : "Simple sale turned on",
       );
     }
   }, [shopify, toggleFetcher.data]);
 
   return (
-    <s-page heading="Percentage offers">
-      <s-section heading="Create a percentage offer">
+    <s-page heading="Simple sales">
+      <s-section heading="Create a simple sale">
         <s-stack direction="block" gap="base">
           <s-box
             padding="base"
@@ -281,10 +281,10 @@ export default function FlatPercentageDiscountPage() {
             background="subdued"
           >
             <s-stack direction="block" gap="tight">
-              <s-heading>How this offer works</s-heading>
+              <s-heading>How this sale works</s-heading>
               <s-paragraph>
-                This offer takes the same percentage off every eligible product
-                in the shopping cart.
+                This sale gives the same saving on every product in the shopping
+                cart.
               </s-paragraph>
               <s-paragraph>
                 Use it for simple store-wide sales, such as 10% off, 15% off,
@@ -312,7 +312,7 @@ export default function FlatPercentageDiscountPage() {
                     defaultValue="10"
                   />
                   <s-text-field
-                    label="Message for shoppers"
+                    label="Cart message"
                     name="message"
                     defaultValue="Your percentage saving has been applied"
                   />
@@ -324,17 +324,17 @@ export default function FlatPercentageDiscountPage() {
                 variant="primary"
                 loading={createFetcher.state !== "idle"}
               >
-                Create offer
+                Create sale
               </s-button>
             </s-stack>
           </createFetcher.Form>
         </s-stack>
       </s-section>
 
-      <s-section heading="Your percentage offers">
+      <s-section heading="Your simple sales">
         {discountsError ? (
           <s-paragraph>
-            Your saved percentage offers could not be loaded: {discountsError}
+            Your saved simple sales could not be loaded: {discountsError}
           </s-paragraph>
         ) : discounts.length > 0 ? (
           <s-stack direction="block" gap="base">
@@ -363,7 +363,7 @@ export default function FlatPercentageDiscountPage() {
                     <s-paragraph>
                       Saving: {discount.config.percentage}% off
                     </s-paragraph>
-                    <s-paragraph>Shopper message: {discount.config.message}</s-paragraph>
+                    <s-paragraph>Cart message: {discount.config.message}</s-paragraph>
                     <s-paragraph>Starts: {discount.startsAt}</s-paragraph>
                     <s-paragraph>
                       Ends: {discount.endsAt || "No end date"}
@@ -396,7 +396,7 @@ export default function FlatPercentageDiscountPage() {
           </s-stack>
         ) : (
           <s-paragraph>
-            You have not created a percentage offer yet. Create one above and
+            You have not created a simple sale yet. Create one above and
             it will appear here.
           </s-paragraph>
         )}

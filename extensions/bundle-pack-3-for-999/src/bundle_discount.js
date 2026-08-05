@@ -5,9 +5,10 @@ export function runBundleDiscount(input, configValue) {
   const bundleRules = [...config.bundleTiers]
     .map((tier) => ({
       quantity: tier.quantity,
-      fixedBundlePrice: tier.price,
+      discountType: tier.discountType,
+      value: tier.value,
     }))
-    .filter((rule) => rule.quantity >= 2 && rule.fixedBundlePrice > 0)
+    .filter((rule) => rule.quantity >= 2 && rule.value > 0)
     .sort((left, right) => right.quantity - left.quantity);
 
   if (!bundleRules.length) {
@@ -65,7 +66,9 @@ export function runBundleDiscount(input, configValue) {
         (total, unit) => total + unit.price,
         0,
       );
-      const bundleDiscount = bundleSubtotal - rule.fixedBundlePrice;
+      const bundleDiscount = rule.discountType === 'percentage'
+        ? bundleSubtotal * (rule.value / 100)
+        : bundleSubtotal - rule.value;
 
       if (bundleDiscount > 0) {
         discountAmount += bundleDiscount;
@@ -173,9 +176,10 @@ function normalizeBundleTiers(value, fallback) {
   const tiers = (Array.isArray(value) ? value : [])
     .map((tier) => ({
       quantity: toPositiveInteger(tier?.quantity, 0),
-      price: toPositiveNumber(tier?.price, 0),
+      discountType: tier?.discountType === 'percentage' ? 'percentage' : 'fixed_price',
+      value: toPositiveNumber(tier?.value ?? tier?.price, 0),
     }))
-    .filter((tier) => tier.quantity >= 2 && tier.price > 0)
+    .filter((tier) => tier.quantity >= 2 && tier.value > 0 && (tier.discountType !== 'percentage' || tier.value <= 100))
     .sort((left, right) => left.quantity - right.quantity)
     .filter((tier) => {
       if (seenQuantities.has(tier.quantity)) {

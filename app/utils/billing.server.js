@@ -1,15 +1,15 @@
-export const MONTHLY_PLAN = "Discount Bundle Monthly";
+export const MONTHLY_PLAN = "Discount Bundle Pro";
 
 export const SUBSCRIPTION_PLAN = {
   name: MONTHLY_PLAN,
   trialDays: 14,
-  amount: 5,
+  amount: 10,
   currencyCode: "USD",
   intervalLabel: "30 days",
 };
 
-// Keep billing in Shopify test mode unless the env var is explicitly set to "false".
-export const BILLING_TEST_MODE = process.env.SHOPIFY_BILLING_TEST !== "false";
+// Production billing is the safe default. Enable test charges explicitly for a development store.
+export const BILLING_TEST_MODE = process.env.SHOPIFY_BILLING_TEST === "true";
 export const BILLING_DISABLED = process.env.SHOPIFY_SKIP_BILLING === "true";
 
 function getBypassSubscription() {
@@ -78,4 +78,18 @@ export async function requireSubscription(billing, request, shop) {
   });
 
   return result.appSubscriptions?.[0] ?? null;
+}
+
+// Free stores can create one quantity offer. All storefront bundles, flat
+// sales, and additional quantity offers require an approved Pro subscription.
+export async function requireProSubscription(billing, request, shop) {
+  return requireSubscription(billing, request, shop);
+}
+
+export function getPlanDetails(subscription) {
+  return {
+    name: subscription ? "Pro" : "Free",
+    isPro: Boolean(subscription),
+    trialDays: SUBSCRIPTION_PLAN.trialDays,
+  };
 }

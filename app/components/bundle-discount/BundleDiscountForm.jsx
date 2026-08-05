@@ -20,8 +20,7 @@ export function BundleDiscountForm({
         toDateTimeLocalValue(new Date().toISOString()),
       endsAt: toDateTimeLocalValue(defaultValues?.endsAt),
       config: {
-        bundleTiers:
-          defaultValues?.config?.bundleTiers ?? DEFAULT_BUNDLE_CONFIG.bundleTiers,
+        bundleTiers: (defaultValues?.config?.bundleTiers ?? DEFAULT_BUNDLE_CONFIG.bundleTiers).map(toFormTier),
         selectedCollectionIds:
           defaultValues?.config?.selectedCollectionIds ??
           DEFAULT_BUNDLE_CONFIG.selectedCollectionIds,
@@ -78,9 +77,10 @@ export function BundleDiscountForm({
   const sortedPreviewTiers = [...bundleTiers]
     .map((tier) => ({
       quantity: Number(tier.quantity) || 0,
-      price: Number(tier.price) || 0,
+      discountType: tier.discountType === "percentage" ? "percentage" : "fixed_price",
+      value: Number(tier.value ?? tier.price) || 0,
     }))
-    .filter((tier) => tier.quantity > 0 || tier.price > 0)
+    .filter((tier) => tier.quantity > 0 || tier.value > 0)
     .sort((left, right) => left.quantity - right.quantity);
   const discountMessagePreview =
     String(initialValues.config.message || "").trim() || DEFAULT_BUNDLE_CONFIG.message;
@@ -112,7 +112,7 @@ export function BundleDiscountForm({
               defaultValue={initialValues.title}
             />
             <s-text-field
-              label="Message for shoppers"
+              label="Cart message"
               name="message"
               defaultValue={initialValues.config.message}
             />
@@ -203,8 +203,8 @@ export function BundleDiscountForm({
             >
               <SectionIntro
                 step="2"
-                title="Set your bundle prices"
-                description="For each option, enter how many items shoppers need to buy and the total price they will pay."
+                title="Choose how shoppers save"
+                description="For each quantity, choose either a fixed total bundle price or a percentage off. Use the examples to make the offer easy to understand."
               />
               <s-button type="button" variant="secondary" onClick={addTier}>
                 Add another bundle option
@@ -228,8 +228,13 @@ export function BundleDiscountForm({
                     />
                     <input
                       type="hidden"
-                      name="bundleTierPrice"
-                      value={tier.price}
+                      name="bundleTierDiscountType"
+                      value={tier.discountType}
+                    />
+                    <input
+                      type="hidden"
+                      name="bundleTierValue"
+                      value={tier.value}
                     />
                     <s-text-field
                       label={`Option ${index + 1}: number of items`}
@@ -239,14 +244,34 @@ export function BundleDiscountForm({
                         updateTier(index, "quantity", event.currentTarget.value)
                       }
                     />
+                    <label style={{ display: "grid", gap: "0.35rem", fontWeight: 700 }}>
+                      <span>How should shoppers save?</span>
+                      <select
+                        value={tier.discountType}
+                        onChange={(event) => changeTierDiscountType(index, event.currentTarget.value)}
+                        style={tierSelectStyle}
+                      >
+                        <option value="fixed_price">Set a fixed total bundle price</option>
+                        <option value="percentage">Give a percentage off</option>
+                      </select>
+                    </label>
                     <s-text-field
-                      label={`Option ${index + 1}: total bundle price`}
+                      label={tier.discountType === "percentage"
+                        ? `Option ${index + 1}: percentage off`
+                        : `Option ${index + 1}: total bundle price`}
                       type="number"
-                      value={String(tier.price)}
+                      min="0"
+                      max={tier.discountType === "percentage" ? "100" : undefined}
+                      value={String(tier.value)}
                       onInput={(event) =>
-                        updateTier(index, "price", event.currentTarget.value)
+                        updateTier(index, "value", event.currentTarget.value)
                       }
                     />
+                    <p style={tierHintStyle}>
+                      {tier.discountType === "percentage"
+                        ? `Example: Buy ${tier.quantity || "this many"} items and get ${tier.value || "0"}% off.`
+                        : `Example: Buy ${tier.quantity || "this many"} items and pay ${tier.value || "your price"} in total.`}
+                    </p>
                     <div style={{ display: "flex", justifyContent: "flex-start" }}>
                       <s-button
                         type="button"
@@ -483,7 +508,7 @@ export function BundleDiscountForm({
                 }
               />
               <SummaryItem
-                label="Message for shoppers"
+                label="Cart message"
                 value={discountMessagePreview}
                 detail="Shoppers see this when the offer is applied."
               />
@@ -504,13 +529,15 @@ export function BundleDiscountForm({
               <s-stack direction="block" gap="tight">
                 <s-heading>{initialValues.title}</s-heading>
                 {sortedPreviewTiers.map((tier) => (
-                  <s-paragraph key={`${tier.quantity}-${tier.price}`}>
-                    Buy {tier.quantity} for {tier.price}
+                  <s-paragraph key={`${tier.quantity}-${tier.discountType}-${tier.value}`}>
+                    {tier.discountType === "percentage"
+                      ? `Buy ${tier.quantity} and get ${tier.value}% off`
+                      : `Buy ${tier.quantity} for ${tier.value}`}
                   </s-paragraph>
                 ))}
                 <s-paragraph>Applies to: {appliesToLabel}</s-paragraph>
                 <s-paragraph>
-                  Shopper message: {discountMessagePreview}
+                  Cart message: {discountMessagePreview}
                 </s-paragraph>
               </s-stack>
             </s-box>
@@ -521,12 +548,10 @@ export function BundleDiscountForm({
           <s-stack direction="block" gap="tight">
             <s-heading>Helpful tips</s-heading>
             <s-paragraph>
-              Add a separate option when you want to offer different prices for
-              2, 3, 4, or more items.
+              You can mix offer types. For example, set “Buy 2 for 799” and “Buy 3, get 15% off”.
             </s-paragraph>
             <s-paragraph>
-              Use each item quantity only once in an offer. For example, do not
-              add two different prices for 3 items.
+              Use each item quantity only once. For example, do not add two different offers for 3 items.
             </s-paragraph>
             <s-paragraph>
               Choose collections when the offer should apply to only some of
@@ -550,6 +575,28 @@ export function BundleDiscountForm({
       currentTiers.map((tier, tierIndex) =>
         tierIndex === index ? { ...tier, [field]: value } : tier,
       ),
+    );
+  }
+
+  function changeTierDiscountType(index, discountType) {
+    setBundleTiers((currentTiers) =>
+      currentTiers.map((tier, tierIndex) => {
+        if (tierIndex !== index) {
+          return tier;
+        }
+
+        if (discountType === "percentage") {
+          const existingValue = Number(tier.value);
+          return {
+            ...tier,
+            discountType,
+            // A fixed bundle price such as 799 can't become a valid percentage.
+            value: existingValue > 0 && existingValue <= 100 ? tier.value : 10,
+          };
+        }
+
+        return { ...tier, discountType, value: "" };
+      }),
     );
   }
 
@@ -714,6 +761,18 @@ function createEmptyTier(currentTiers) {
 
   return {
     quantity: highestQuantity + 1,
-    price: "",
+    discountType: "fixed_price",
+    value: "",
   };
 }
+
+function toFormTier(tier) {
+  return {
+    quantity: tier?.quantity ?? 2,
+    discountType: tier?.discountType === "percentage" ? "percentage" : "fixed_price",
+    value: tier?.value ?? tier?.price ?? "",
+  };
+}
+
+const tierSelectStyle = { width: "100%", border: "1px solid #aeb4bc", borderRadius: "0.6rem", padding: "0.7rem", fontSize: "1rem", background: "#ffffff" };
+const tierHintStyle = { margin: 0, color: "#64748b", fontSize: "0.85rem", lineHeight: 1.45 };

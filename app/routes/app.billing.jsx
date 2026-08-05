@@ -8,13 +8,8 @@ import {
   requestSubscription,
 } from "../utils/billing.server";
 
-const PREMIUM_FEATURES = [
-  "Create and manage bundle discounts",
-  "Launch volume discount offers",
-  "Set up flat-off promotions",
-  "Access every discount feature in one plan",
-  "Use the full discount dashboard for your store",
-];
+const FREE_FEATURES = ["One active quantity discount", "Collection targeting", "Basic in-app support"];
+const PRO_FEATURES = ["Unlimited quantity discounts", "Fixed-price bundle discounts", "Storefront bundle page", "Simple sales", "GoKwik or Shiprocket checkout snippets"];
 
 export const loader = async ({ request }) => {
   const { billing } = await authenticate.admin(request);
@@ -60,12 +55,10 @@ export default function BillingPage() {
           <div style={{ display: "grid", gap: "0.55rem" }}>
             <div style={heroBadgeStyle}>Billing overview</div>
             <h2 style={{ margin: 0, fontSize: "1.45rem", fontWeight: 800 }}>
-              One subscription for all discount tools
+              Choose the plan that fits your store
             </h2>
             <p style={{ margin: 0, maxWidth: "48rem", color: "rgba(255,255,255,0.92)" }}>
-              Install once, start with a {plan.trialDays}-day free trial, then continue at
-              ${plan.amount} every {plan.intervalLabel} for all bundle, volume, and flat-off
-              discount features.
+              Start on Free, or approve Pro to begin a {plan.trialDays}-day free trial. Shopify automatically starts the ${plan.amount} monthly Pro subscription after the trial unless the merchant cancels it in Shopify Admin.
             </p>
           </div>
         </div>
@@ -92,6 +85,16 @@ export default function BillingPage() {
             gap: "1rem",
           }}
         >
+          <section style={buildPlanCardStyle("#f8fafc", "#d1d5db")}>
+            <div style={planTagStyle("#334155", "#e2e8f0")}>Free</div>
+            <div style={{ display: "grid", gap: "0.35rem" }}>
+              <h3 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 800 }}>$0 / month</h3>
+              <p style={mutedCopyStyle}>Use one active quantity offer at no cost. No card or trial approval is required.</p>
+            </div>
+            <ul style={featureListStyle}>{FREE_FEATURES.map((feature) => <li key={feature}>{feature}</li>)}</ul>
+            {!hasSubscription ? <div style={noteBoxStyle}>Your store is currently on Free.</div> : null}
+          </section>
+
           <section style={buildPlanCardStyle("#ffffff", "#111111")}>
             <div
               style={{
@@ -102,7 +105,7 @@ export default function BillingPage() {
                 flexWrap: "wrap",
               }}
             >
-              <div style={planTagStyle("#111111", "#f3f4f6")}>Premium plan</div>
+              <div style={planTagStyle("#111111", "#f3f4f6")}>Pro plan</div>
               <div style={statusPillStyle(hasSubscription ? "#0f766e" : "#92400e")}>
                 {hasSubscription ? "Active" : "14-day trial"}
               </div>
@@ -113,33 +116,30 @@ export default function BillingPage() {
                 ${plan.amount} / {plan.intervalLabel}
               </h3>
               <p style={mutedCopyStyle}>
-                This single plan unlocks every discount type in the app. Billing starts after
-                the {plan.trialDays}-day free trial ends.
+                Approve the subscription now, use all Pro features free for {plan.trialDays} days, then Shopify bills ${plan.amount} every {plan.intervalLabel}.
               </p>
             </div>
 
             <ul style={featureListStyle}>
-              {PREMIUM_FEATURES.map((feature) => (
+              {PRO_FEATURES.map((feature) => (
                 <li key={feature}>{feature}</li>
               ))}
             </ul>
 
             {hasSubscription ? (
               <div style={noteBoxStyle}>
-                This store already has the active premium subscription for all discount
-                features.
+                Pro is active for this store. Manage or cancel this subscription in Shopify Admin → Settings → Billing.
               </div>
             ) : (
               <Form method="post" reloadDocument>
                 <s-button type="submit" variant="primary" loading={isSubmitting}>
-                  Activate {plan.trialDays}-day trial
+                  Start {plan.trialDays}-day Pro trial
                 </s-button>
               </Form>
             )}
 
             <div style={noteBoxStyle}>
-              No cancel action is shown inside this app. The subscription is intended to stay
-              active while the app is installed.
+              Cancel anytime in Shopify Admin → Settings → Billing. Cancelling returns future use to the Free plan when the paid period ends.
             </div>
 
             {billingTestMode ? (
