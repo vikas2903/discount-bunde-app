@@ -8,6 +8,6 @@ export const loader = async ({ request }) => {
   const subscription = await checkSubscription(billing);
 
   return redirect(
-    subscription ? "/app/disocunt_bundle" : "/app/volume_discounts",
+    subscription ? "/app" : "/app",
   );
 };
