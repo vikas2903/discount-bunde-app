@@ -57,7 +57,7 @@ export default function AnalyticsPage() {
           <Metric label="Offers created" value={offers.length} detail={`${activeOffers} active offer${activeOffers === 1 ? "" : "s"}`} />
           <Metric label="Offer orders" value={orders.length} detail="Orders using your app offers" />
           <Metric label="Customer savings" value={money.format(savings)} detail="Savings from your app offers" />
-          <Metric label="Offer revenue" value={money.format(revenue)} detail="Full order value for matched orders" />
+          <Metric label="Sales after discounts" value={money.format(revenue)} detail="Amount paid after your app offer is applied" />
         </div>
         <section style={{ overflowX: "auto", border: "1px solid #dbe4ea", borderRadius: "0.85rem", background: "#fff" }}>
           <table style={{ width: "100%", minWidth: "760px", borderCollapse: "collapse" }}>
