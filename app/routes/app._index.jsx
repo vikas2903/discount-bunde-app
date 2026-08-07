@@ -1,13 +1,7 @@
 import { authenticate } from "../shopify.server";
-import { checkSubscription } from "../utils/billing.server";
-
-// Shopify opens the embedded app at /app. Pro stores start with Bundle offers;
-// Free stores start with the included Quantity offers page.
+// Shopify opens the embedded app at /app. Bundle offers is the app landing
+// page; its own loader sends stores without Pro access to billing.
 export const loader = async ({ request }) => {
-  const { billing, redirect } = await authenticate.admin(request);
-  const subscription = await checkSubscription(billing);
-
-  return redirect(
-    subscription ? "/app/bundle-offers" : "/app/quantity-offers",
-  );
+  const { redirect } = await authenticate.admin(request);
+  return redirect("/app/disocunt_bundle");
 };

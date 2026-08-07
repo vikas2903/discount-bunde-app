@@ -1,3 +1,4 @@
+/* global process */
 import { Form, useLoaderData, useNavigation } from "react-router";
 import { authenticate } from "../shopify.server";
 import { checkSubscription, getPlanDetails, requireProSubscription } from "../utils/billing.server";

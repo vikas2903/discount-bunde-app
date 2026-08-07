@@ -20,7 +20,9 @@ export const loader = async ({ request }) => {
 
     return {
       shop: session.shop,
-      orders: analytics.orders,
+      // Keep the dashboard scoped to discounts created by this app. Shopify
+      // returns all store orders, including orders using other apps and codes.
+      orders: analytics.orders.filter((order) => order.usesAppDiscount),
       loadError: [
         ...bundleResult.graphqlErrors,
         ...volumeResult.graphqlErrors,
@@ -34,24 +36,22 @@ export const loader = async ({ request }) => {
 
 export default function AnalyticsPage() {
   const { shop, orders, loadError } = useLoaderData();
-  const discountedOrders = orders.filter((order) => order.hasDiscount);
-  const appOrders = orders.filter((order) => order.usesAppDiscount);
   const currency = orders[0]?.currencyCode || "USD";
   const money = new Intl.NumberFormat(undefined, { style: "currency", currency });
-  const savings = discountedOrders.reduce((total, order) => total + order.savings, 0);
-  const appRevenue = appOrders.reduce((total, order) => total + order.revenue, 0);
+  const savings = orders.reduce((total, order) => total + order.savings, 0);
+  const revenue = orders.reduce((total, order) => total + order.revenue, 0);
 
   return (
     <s-page heading="Analytics">
       <div style={{ display: "grid", gap: "1rem" }}>
-        <p style={{ margin: 0, color: "#64748b" }}>Last 30 days for {shop}.</p>
+        <p style={{ margin: 0, color: "#64748b" }}>
+          Last 30 days for {shop}. Only orders using this app&apos;s offers are included.
+        </p>
         {loadError ? <s-banner tone="warning"><s-paragraph>{loadError}</s-paragraph></s-banner> : null}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: "0.8rem" }}>
-          <Metric label="Orders" value={orders.length} detail="All orders in this period" />
-          <Metric label="Discounted orders" value={discountedOrders.length} detail="Orders with recorded savings" />
-          <Metric label="Customer savings" value={money.format(savings)} detail="All discounts in this period" />
-          <Metric label="Orders using your offers" value={appOrders.length} detail="Matched to your offer title or message" />
-          <Metric label="Revenue from your offers" value={money.format(appRevenue)} detail="Full order value for matched orders" />
+          <Metric label="Offer orders" value={orders.length} detail="Orders using your app offers" />
+          <Metric label="Customer savings" value={money.format(savings)} detail="Savings from your app offers" />
+          <Metric label="Offer revenue" value={money.format(revenue)} detail="Full order value for matched orders" />
         </div>
         <s-banner tone="info"><s-paragraph>Analytics uses order totals and discount data only. It does not read customer information.</s-paragraph></s-banner>
       </div>

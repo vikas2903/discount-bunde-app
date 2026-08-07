@@ -48,10 +48,12 @@
       {%- endif -%}
     </div>
 
+
     <div class="quantity-offers__footer">
-      <label class="quantity-offers__quantity-label">Quantity <input data-quantity-input type="number" min="1" value="1"></label>
+     <label class="quantity-offers__quantity-label">Quantity <input data-quantity-input type="number" min="1" value="1"></label>
       <button type="button" class="quantity-offers__button" data-add-button {% unless selected_variant.available %}disabled{% endunless %}>{{ block.settings.button_label }}</button>
     </div>
+
     <p class="quantity-offers__notice" data-notice>{{ block.settings.footer_note }}</p>
     <script type="application/json" data-variants>{{ offer_product.variants | json }}</script>
   {%- else -%}
