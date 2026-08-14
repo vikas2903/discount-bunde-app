@@ -166,6 +166,8 @@ export default function VolumeDiscountForm({
                     <s-text-field
                       label="Saving percentage"
                       type="number"
+                      min="0"
+                      max="100"
                       value={String(tier.discountValue)}
                       onInput={(event) =>
                         updateTier(

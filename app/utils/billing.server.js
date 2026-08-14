@@ -11,6 +11,7 @@ export const SUBSCRIPTION_PLAN = {
 // Production billing is the safe default. Enable test charges explicitly for a development store.
 export const BILLING_TEST_MODE = process.env.SHOPIFY_BILLING_TEST === "true";
 export const BILLING_DISABLED = process.env.SHOPIFY_SKIP_BILLING === "true";
+export const DASHBOARD_HOME_PATH = "/app/analytics";
 
 function getBypassSubscription() {
   return {
@@ -37,7 +38,11 @@ function buildReturnUrl(request, shop) {
   // Use the configured public app URL. This prevents Shopify billing from
   // returning to an old deployment hostname after an app URL change.
   const appUrl = process.env.SHOPIFY_APP_URL || requestUrl.origin;
-  const returnUrl = new URL("/app", appUrl);
+  // Return directly to a dashboard route that is available to every plan.
+  // Going through /app used to immediately redirect to the Pro-only bundle
+  // page, which could send merchants back to billing before Shopify's
+  // subscription status had refreshed.
+  const returnUrl = new URL(DASHBOARD_HOME_PATH, appUrl);
 
   // Preserve the shop and embed context so Shopify can re-enter the app cleanly
   // after the hosted billing approval page closes.

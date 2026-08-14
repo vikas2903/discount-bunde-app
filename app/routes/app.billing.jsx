@@ -3,6 +3,7 @@ import { authenticate } from "../shopify.server";
 import {
   BILLING_DISABLED,
   BILLING_TEST_MODE,
+  DASHBOARD_HOME_PATH,
   SUBSCRIPTION_PLAN,
   checkSubscription,
   requestSubscription,
@@ -28,7 +29,7 @@ export const action = async ({ request }) => {
   const subscription = await checkSubscription(billing);
 
   if (subscription) {
-    return redirect("/app");
+    return redirect(DASHBOARD_HOME_PATH);
   }
 
   return requestSubscription(billing, request, session.shop);

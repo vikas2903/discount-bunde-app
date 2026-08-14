@@ -3,7 +3,12 @@ import { Outlet, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
-import { checkSubscription, getPlanDetails } from "../utils/billing.server";
+import {
+  checkSubscription,
+  getPlanDetails,
+} from "../utils/billing.server";
+
+const DASHBOARD_HOME_PATH = "/app/analytics";
 
 export const loader = async ({ request }) => {
   const { billing } = await authenticate.admin(request);
@@ -22,6 +27,7 @@ export default function App() {
   return (
     <AppProvider embedded apiKey={apiKey}>
       <s-app-nav>
+        <s-link href={DASHBOARD_HOME_PATH} rel="home">Dashboard</s-link>
         <s-link href="/app/analytics">Analytics</s-link>
         <s-link href="/app/volume_discounts">Quantity offers(Free)</s-link>
         <s-link href={plan.isPro ? "/app/disocunt_bundle" : "/app/billing"}>

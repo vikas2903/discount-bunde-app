@@ -1,8 +1,9 @@
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../../shopify.server";
+import { DASHBOARD_HOME_PATH } from "../../utils/billing.server";
 
 // Shopify opens the app at its root URL. Authenticate that launch and hand it
-// to /app, which then redirects to the Quantity offers home page.
+// directly to the dashboard.
 export const loader = async ({ request }) => {
   const url = new URL(request.url);
   const isShopifyLaunch =
@@ -21,7 +22,7 @@ export const loader = async ({ request }) => {
   }
 
   const { redirect } = await authenticate.admin(request);
-  return redirect("/app");
+  return redirect(DASHBOARD_HOME_PATH);
 };
 
 export const headers = (headersArgs) => boundary.headers(headersArgs);

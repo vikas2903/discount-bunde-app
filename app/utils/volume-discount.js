@@ -110,6 +110,10 @@ export function validateVolumeConfig(config, { allowLegacy = false } = {}) {
       errors.push("Tier discount value must be greater than 0.");
     }
 
+    if (tier.discountType === "percentage" && tier.discountValue > 100) {
+      errors.push("Percentage off cannot be more than 100%.");
+    }
+
     if (seenQuantities.has(tier.minQty)) {
       errors.push("Each tier quantity must be unique.");
     }

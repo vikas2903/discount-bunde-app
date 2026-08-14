@@ -107,7 +107,11 @@ function parseVolumeConfig(value) {
               discountValue: toPositiveNumber(tier?.discountValue, 0),
               label: typeof tier?.label === 'string' ? tier.label : '',
             }))
-            .filter((tier) => tier.discountValue > 0)
+            .filter(
+              (tier) =>
+                tier.discountValue > 0 &&
+                (tier.discountType !== 'percentage' || tier.discountValue <= 100),
+            )
         : fallback.tiers,
       mode: Array.isArray(config.tiers) && config.tiers.length > 0
         ? 'collection'
@@ -125,7 +129,11 @@ function parseVolumeConfig(value) {
                     discountValue: toPositiveNumber(tier?.discountValue, 0),
                     label: typeof tier?.label === 'string' ? tier.label : '',
                   }))
-                  .filter((tier) => tier.discountValue > 0)
+                  .filter(
+                    (tier) =>
+                      tier.discountValue > 0 &&
+                      (tier.discountType !== 'percentage' || tier.discountValue <= 100),
+                  )
               : [],
           }))
         : fallback.products,
