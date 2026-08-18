@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 import { listBundleDiscounts } from "../services/bundle-discount.server";
@@ -41,6 +42,11 @@ export const loader = async ({ request }) => {
 export default function StorefrontSetupPage() {
   const { shop, apiKey, themes, bundleOffers, quantityOffers, loadError } = useLoaderData();
   const liveThemes = themes.filter((theme) => theme.role === "MAIN");
+  const [selectedThemeId, setSelectedThemeId] = useState(liveThemes[0]?.id || themes[0]?.id || "");
+  const selectedTheme = useMemo(
+    () => themes.find((theme) => theme.id === selectedThemeId) || themes[0],
+    [selectedThemeId, themes],
+  );
 
   return (
     <s-page heading="Storefront setup">
@@ -62,14 +68,15 @@ export default function StorefrontSetupPage() {
         </div>
 
         <section style={sectionStyle}>
-          <div><div style={eyebrowStyle}>Step 1</div><h3 style={titleStyle}>Select a theme</h3><p style={copyStyle}>Live themes are published to shoppers. Preview themes are unpublished or development themes, which are ideal for testing first.</p></div>
-          <div style={themeGridStyle}>
-            {themes.length ? themes.map((theme) => <ThemeCard key={theme.id} theme={theme} shop={shop} apiKey={apiKey} />) : <p style={copyStyle}>No themes were returned. Check that the app has permission to read themes, then reopen this page.</p>}
-          </div>
+          <div><div style={eyebrowStyle}>Step 1</div><h3 style={titleStyle}>Select a theme</h3><p style={copyStyle}>Choose one theme to set up. Live themes are visible to shoppers; preview and development themes are best for testing.</p></div>
+          {themes.length ? <>
+            <label style={selectLabelStyle}>Theme to customize<select value={selectedThemeId} onChange={(event) => setSelectedThemeId(event.target.value)} style={selectStyle}>{themes.map((theme) => <option key={theme.id} value={theme.id}>{theme.name} — {theme.role === "MAIN" ? "Live" : theme.role === "DEVELOPMENT" ? "Development" : "Preview"}</option>)}</select></label>
+            {selectedTheme ? <ThemeCard theme={selectedTheme} shop={shop} apiKey={apiKey} /> : null}
+          </> : <p style={copyStyle}>No themes were returned. Check that the app has permission to read themes, then reopen this page.</p>}
         </section>
 
         <section style={sectionStyle}>
-          <div><div style={eyebrowStyle}>Step 2</div><h3 style={titleStyle}>Choose the storefront block</h3><p style={copyStyle}>Open a theme editor from the selected theme above, then use the matching button below to add the block.</p></div>
+          <div><div style={eyebrowStyle}>Step 2</div><h3 style={titleStyle}>Choose the storefront block</h3><p style={copyStyle}>Click a button in the selected theme panel. You will be redirected to Shopify’s theme editor with the block ready to add. Use the editor’s left-side settings to customize colors, collection, offers, text, and checkout button, then save.</p></div>
           <div style={templateGridStyle}>
             <TemplateCard name="Bundle template 1" type="Page template" description="A mix-and-match collection bundle with live selected products, savings, and checkout summary." steps={["Create a Page template in the theme editor.", "Add Bundle template 1 and select the bundle collection.", "Create a Shopify Page and assign this page template."]} />
             <TemplateCard name="Bundle template 2" type="Page template" description="An alternative bundle layout for presenting the same collection-based offer to shoppers." steps={["Create a Page template in the theme editor.", "Add Bundle template 2 and configure its collection and tiers.", "Assign the page template to a Shopify Page."]} />
@@ -94,8 +101,9 @@ function ThemeCard({ theme, shop, apiKey }) {
   const productUrl = `${editorBase}?template=product&addAppBlockId=${apiKey}/quantity_offers&target=mainSection`;
   return <article style={{ ...themeCardStyle, borderColor: isLive ? "#059669" : "#dbe4ea" }}>
     <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", alignItems: "start" }}><strong>{theme.name}</strong><span style={{ ...statusStyle, background: isLive ? "#d1fae5" : "#eff6ff", color: isLive ? "#047857" : "#1d4ed8" }}>{status}</span></div>
-    <p style={copyStyle}>{isLive ? "This is currently visible to shoppers." : "This theme is not currently live."}</p>
-    <div style={buttonRowStyle}><a href={pageUrl} target="_top" style={buttonStyle}>Add template 1</a><a href={bundleTwoUrl} target="_top" style={secondaryButtonStyle}>Template 2</a><a href={productUrl} target="_top" style={secondaryButtonStyle}>Quantity offers</a></div>
+    <p style={copyStyle}>{isLive ? "This is currently visible to shoppers." : "This theme is not currently live, so you can safely customize and test it first."}</p>
+    <div style={buttonRowStyle}><a href={pageUrl} target="_top" style={buttonStyle}>Set up Bundle template 1</a><a href={bundleTwoUrl} target="_top" style={secondaryButtonStyle}>Set up Bundle template 2</a><a href={productUrl} target="_top" style={secondaryButtonStyle}>Set up Quantity offers</a></div>
+    <p style={editorHintStyle}>Each option opens the theme editor. Add the block, customize its settings, and click Save when finished.</p>
   </article>;
 }
 
@@ -114,10 +122,11 @@ const copyStyle = { margin: 0, color: "#475569", lineHeight: 1.5, fontSize: "0.9
 const metricGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.8rem" };
 const metricStyle = { padding: "1rem", background: "#fff", border: "1px solid #dbe4ea", borderRadius: "0.85rem" };
 const sectionStyle = { display: "grid", gap: "1rem", padding: "1.15rem", background: "#fff", border: "1px solid #dbe4ea", borderRadius: "1rem" };
-const themeGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(270px, 1fr))", gap: "0.8rem" };
 const themeCardStyle = { display: "grid", gap: "0.8rem", padding: "1rem", border: "1px solid", borderRadius: "0.8rem", background: "#fff" };
 const statusStyle = { flex: "0 0 auto", padding: "0.25rem 0.5rem", borderRadius: "999px", fontSize: "0.72rem", fontWeight: 800 };
 const buttonRowStyle = { display: "flex", gap: "0.45rem", flexWrap: "wrap" };
+const selectLabelStyle = { display: "grid", gap: "0.4rem", maxWidth: "600px", color: "#334155", fontSize: "0.86rem", fontWeight: 750 };
+const selectStyle = { width: "100%", minHeight: "42px", padding: "0.55rem 0.7rem", border: "1px solid #94a3b8", borderRadius: "0.55rem", background: "#fff", color: "#0f172a", font: "inherit" };
 const buttonStyle = { padding: "0.5rem 0.7rem", borderRadius: "0.5rem", background: "#047857", color: "#fff", textDecoration: "none", fontWeight: 750, fontSize: "0.8rem" };
 const secondaryButtonStyle = { ...buttonStyle, background: "#eff6ff", color: "#1e3a8a" };
 const templateGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "0.8rem" };
@@ -125,3 +134,4 @@ const templateCardStyle = { padding: "1rem", border: "1px solid #dbe4ea", border
 const typeStyle = { padding: "0.2rem 0.5rem", borderRadius: "999px", background: "#dbeafe", color: "#1d4ed8", fontSize: "0.7rem", fontWeight: 800 };
 const stepsStyle = { margin: "0.8rem 0 0", paddingLeft: "1.2rem", display: "grid", gap: "0.45rem", color: "#334155", fontSize: "0.85rem", lineHeight: 1.45 };
 const tipStyle = { padding: "1rem", borderRadius: "0.8rem", background: "#ecfdf5", color: "#065f46", lineHeight: 1.5 };
+const editorHintStyle = { margin: 0, padding: "0.65rem 0.75rem", borderRadius: "0.55rem", background: "#f0f9ff", color: "#075985", fontSize: "0.82rem", lineHeight: 1.45 };
