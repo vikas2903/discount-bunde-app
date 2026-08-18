@@ -338,7 +338,9 @@ function DiscountBundleListPage() {
                                 type="button"
                                 style={rowIconButtonStyle}
                                 onClick={() =>
-                                  navigate(`edit/${encodeURIComponent(discount.nodeId)}`)
+                                  navigate(
+                                    `/app/disocunt_bundle/edit/${encodeURIComponent(discount.nodeId)}`,
+                                  )
                                 }
                               >
                                 Edit

@@ -1,1093 +1,1133 @@
 {%- liquid
-  assign bundle_collection = block.settings.bundle_collection
-  assign bundle_collection_handle = bundle_collection.handle
-  assign bundle_collection_source = bundle_collection
-  if bundle_collection_handle != blank
-    assign bundle_collection_source = collections[bundle_collection_handle]
-  endif
-  assign checkout_mode = block.settings.checkout_mode | default: 'shopify'
-  assign shopify_checkout_label = block.settings.shopify_checkout_label | default: 'Checkout securely'
-  capture bundle_tiers
-    echo '['
-    for offer_index in (1..4)
-      assign offer_enabled_key = 'bundle_offer_' | append: offer_index | append: '_enabled'
-      assign offer_quantity_key = 'bundle_offer_' | append: offer_index | append: '_quantity'
-      assign offer_type_key = 'bundle_offer_' | append: offer_index | append: '_type'
-      assign offer_value_key = 'bundle_offer_' | append: offer_index | append: '_value'
-      echo '{"enabled":'
-      echo block.settings[offer_enabled_key] | json
-      echo ',"quantity":'
-      echo block.settings[offer_quantity_key] | json
-      echo ',"discountType":'
-      echo block.settings[offer_type_key] | json
-      echo ',"value":'
-      echo block.settings[offer_value_key] | json
-      echo '}'
-      unless forloop.last
-        echo ','
-      endunless
-    endfor
-    echo ']'
-  endcapture
-  assign bundle_image = block.settings.bundle_image
+assign bundle_collection = block.settings.bundle_collection
+assign bundle_collection_handle = bundle_collection.handle
+assign bundle_collection_source = bundle_collection
+if bundle_collection_handle != blank
+assign bundle_collection_source = collections[bundle_collection_handle]
+endif
+assign checkout_mode = block.settings.checkout_mode | default: 'shopify'
+assign shopify_checkout_label = block.settings.shopify_checkout_label | default: 'Checkout securely'
+capture bundle_tiers
+echo '['
+for offer_index in (1..4)
+assign offer_enabled_key = 'bundle_offer_' | append: offer_index | append: '_enabled'
+assign offer_quantity_key = 'bundle_offer_' | append: offer_index | append: '_quantity'
+assign offer_type_key = 'bundle_offer_' | append: offer_index | append: '_type'
+assign offer_value_key = 'bundle_offer_' | append: offer_index | append: '_value'
+echo '{"enabled":'
+echo block.settings[offer_enabled_key] | json
+echo ',"quantity":'
+echo block.settings[offer_quantity_key] | json
+echo ',"discountType":'
+echo block.settings[offer_type_key] | json
+echo ',"value":'
+echo block.settings[offer_value_key] | json
+echo '}'
+unless forloop.last
+echo ','
+endunless
+endfor
+echo ']'
+endcapture
+assign bundle_image = block.settings.bundle_image
 -%}
 
 <section
-  class="bundle-collection bundle-collection--{{ block.id }}"
-  data-bundle-collection
-  data-section-id="{{ block.id }}"
-  data-currency-code="{{ cart.currency.iso_code | default: shop.currency }}"
-  data-shop-root="{{ routes.root_url }}"
-  data-shop-url="{{ shop.url }}"
-  data-checkout-mode="{{ checkout_mode }}"
-  data-shopify-checkout-label="{{ shopify_checkout_label | escape }}"
-  data-checkout-label="{{ block.settings.custom_checkout_label | escape }}"
-  data-custom-checkout-script="{{ block.settings.custom_checkout_url | escape }}"
-  data-one-per-variant="{{ block.settings.one_per_variant }}"
-  data-bundle-tiers="{{ bundle_tiers | strip_newlines | escape }}"
-  data-total-products="{{ bundle_collection_source.products_count }}"
+class="bundle-collection bundle-collection--{{ block.id }}"
+data-bundle-collection
+data-section-id="{{ block.id }}"
+data-currency-code="{{ cart.currency.iso_code | default: shop.currency }}"
+data-shop-root="{{ routes.root_url }}"
+data-shop-url="{{ shop.url }}"
+data-checkout-mode="{{ checkout_mode }}"
+data-shopify-checkout-label="{{ shopify_checkout_label | escape }}"
+data-checkout-label="{{ block.settings.custom_checkout_label | escape }}"
+data-custom-checkout-script="{{ block.settings.custom_checkout_url | escape }}"
+data-one-per-variant="{{ block.settings.one_per_variant }}"
+data-bundle-tiers="{{ bundle_tiers | strip_newlines | escape }}"
+data-total-products="{{ bundle_collection_source.products_count }}"
 >
-  <div class="bundle-collection__shell page-width">
-    <div class="bundle-collection__products">
-      <div class="bundle-collection__header">
-        {%- if block.settings.eyebrow != blank -%}
-          <p class="bundle-collection__eyebrow">{{ block.settings.eyebrow }}</p>
-        {%- endif -%}
+<div class="bundle-collection__shell page-width">
+<div class="bundle-collection__products">
+<div class="bundle-collection__header">
+{%- if block.settings.eyebrow != blank -%}
+<p class="bundle-collection__eyebrow">{{ block.settings.eyebrow }}</p>
+{%- endif -%}
 
-        <h2 class="bundle-collection__title">{{ block.settings.heading }}</h2>
+<h2 class="bundle-collection__title">{{ block.settings.heading }}</h2>
 
-        {%- if bundle_image != blank -%}
-          <div class="bundle-collection__header-media">
-            {{
-              bundle_image
-              | image_url: width: 900
-              | image_tag:
-                class: 'bundle-collection__header-image',
-                widths: '360, 540, 720, 900',
-                loading: 'lazy',
-                alt: bundle_image.alt | default: block.settings.heading
-            }}
-          </div>
-        {%- endif -%}
+{%- if bundle_image != blank -%}
+<div class="bundle-collection__header-media">
+{{
+bundle_image
+| image_url: width: 900
+| image_tag:
+class: 'bundle-collection__header-image',
+widths: '360, 540, 720, 900',
+loading: 'lazy',
+alt: bundle_image.alt | default: block.settings.heading
+}}
+</div>
+{%- endif -%}
 
-      </div>
+</div>
 
-      {%- if bundle_collection_source != blank and bundle_collection_source.products_count > 0 -%}
-        {%- paginate bundle_collection_source.products by 250 -%}
-        <div class="bundle-collection__grid">
-          {%- for product in bundle_collection_source.products -%}
-            {%- assign default_variant = product.selected_or_first_available_variant -%}
-            {%- assign featured_image = product.featured_image | image_url: width: 800 -%}
-            {%- assign has_multiple_variants = false -%}
-            {%- assign featured_image_alt = product.featured_image.alt | default: product.title -%}
-            {%- if product.has_only_default_variant == false and product.variants.size > 1 -%}
-              {%- assign has_multiple_variants = true -%}
-            {%- endif -%}
+{%- if bundle_collection_source != blank and bundle_collection_source.products_count > 0 -%}
+{%- paginate bundle_collection_source.products by 250 -%}
+<div class="bundle-collection__grid">
+{%- for product in bundle_collection_source.products -%}
+{%- assign default_variant = product.selected_or_first_available_variant -%}
+{%- assign featured_image = product.featured_image | image_url: width: 800 -%}
+{%- assign has_multiple_variants = false -%}
+{%- assign featured_image_alt = product.featured_image.alt | default: product.title -%}
+{%- if product.has_only_default_variant == false and product.variants.size > 1 -%}
+{%- assign has_multiple_variants = true -%}
+{%- endif -%}
 
-            <article
-              class="bundle-collection__card"
-              data-bundle-card
-              data-product-id="{{ product.id }}"
-              data-product-title="{{ product.title | escape }}"
-              data-product-handle="{{ product.handle }}"
-              data-product-url="{{ product.url }}"
-              data-product-image="{{ featured_image }}"
-              data-default-variant-id="{{ default_variant.id }}"
-              data-default-variant-title="{{ default_variant.title | default: 'Default title' | escape }}"
-              data-default-price="{{ default_variant.price }}"
-              data-has-multiple-variants="{{ has_multiple_variants }}"
-              data-product-available="{{ product.available }}"
-            >
-              <div class="bundle-collection__card-media">
-                <a class="bundle-collection__card-link" href="{{ product.url }}">
-                  {%- if product.featured_image != blank -%}
-                    {{
-                      product.featured_image
-                      | image_url: width: 800
-                      | image_tag:
-                        class: 'bundle-collection__card-image',
-                        widths: '320, 480, 640, 800',
-                        loading: 'lazy',
-                        alt: featured_image_alt
-                    }}
-                  {%- else -%}
-                    <div class="bundle-collection__card-placeholder"></div>
-                  {%- endif -%}
-                </a>
+<article
+class="bundle-collection__card"
+data-bundle-card
+data-product-id="{{ product.id }}"
+data-product-title="{{ product.title | escape }}"
+data-product-handle="{{ product.handle }}"
+data-product-url="{{ product.url }}"
+data-product-image="{{ featured_image }}"
+data-default-variant-id="{{ default_variant.id }}"
+data-default-variant-title="{{ default_variant.title | default: 'Default title' | escape }}"
+data-default-price="{{ default_variant.price }}"
+data-has-multiple-variants="{{ has_multiple_variants }}"
+data-product-available="{{ product.available }}"
+>
+<div class="bundle-collection__card-media">
+<a class="bundle-collection__card-link" href="{{ product.url }}">
+{%- if product.featured_image != blank -%}
+{{
+product.featured_image
+| image_url: width: 800
+| image_tag:
+class: 'bundle-collection__card-image',
+widths: '320, 480, 640, 800',
+loading: 'lazy',
+alt: featured_image_alt
+}}
+{%- else -%}
+<div class="bundle-collection__card-placeholder"></div>
+{%- endif -%}
+</a>
 
-                {%- if product.available -%}
-                  <span class="bundle-collection__card-badge">{{ block.settings.Product_label }}</span>
-                {%- else -%}
-                  <span class="bundle-collection__card-badge bundle-collection__card-badge--sold-out">Out of stock</span>
-                {%- endif -%}
-              </div>
+{%- if product.available -%}
+<span class="bundle-collection__card-badge">{{ block.settings.Product_label }}</span>
+{%- else -%}
+<span class="bundle-collection__card-badge bundle-collection__card-badge--sold-out">Out of stock</span>
+{%- endif -%}
+</div>
 
-              <div class="bundle-collection__card-body">
-                <a class="bundle-collection__card-title" href="{{ product.url }}">{{ product.title | truncate: 24 }}</a>
+<div class="bundle-collection__card-body">
+<a class="bundle-collection__card-title" href="{{ product.url }}">{{ product.title | truncate: 24 }}</a>
 
-                <div class="bundle-collection__card-price-row">
-                  <span class="bundle-collection__card-price">{{ default_variant.price | money }}</span>
+<div class="bundle-collection__card-price-row">
+<span class="bundle-collection__card-price">{{ default_variant.price | money }}</span>
 
-                  {%- if default_variant.compare_at_price > default_variant.price -%}
-                    <span class="bundle-collection__card-compare">{{ default_variant.compare_at_price | money }}</span>
-                  {%- endif -%}
-                </div>
+{%- if default_variant.compare_at_price > default_variant.price -%}
+<span class="bundle-collection__card-compare">{{ default_variant.compare_at_price | money }}</span>
+{%- endif -%}
+</div>
 
-                {%- if has_multiple_variants -%}
-                  <p class="bundle-collection__card-meta">
-                    {{ product.variants.size }} variants available
-                  </p>
-                {%- endif -%}
+{%- if has_multiple_variants -%}
+<p class="bundle-collection__card-meta">
+{{ product.variants.size }} variants available
+</p>
+{%- endif -%}
 
-                <div class="bundle-collection__card-footer">
-                  <button
-                    type="button"
-                    class="bundle-collection__card-toggle"
-                    data-card-toggle
-                    aria-pressed="false"
-                    {% unless product.available %}disabled aria-disabled="true"{% endunless %}
-                  >
-                    {%- if has_multiple_variants -%}
-                      Choose options
-                    {%- else -%}
-                      Add to bundle
-                    {%- endif -%}
-                  </button>
-                </div>
-              </div>
+<div class="bundle-collection__card-footer">
+<button
+type="button"
+class="bundle-collection__card-toggle"
+data-card-toggle
+aria-pressed="false"
+{% unless product.available %}disabled aria-disabled="true"{% endunless %}
+>
+{%- if has_multiple_variants -%}
+Choose options
+{%- else -%}
+Add to bundle
+{%- endif -%}
+</button>
+</div>
+</div>
 
-              <script type="application/json" data-product-options>
-                {{ product.options | json }}
-              </script>
-              <script type="application/json" data-product-variants>
-                [
-                  {%- for variant in product.variants -%}
-                    {
-                      "id": {{ variant.id | json }},
-                      "title": {{ variant.title | json }},
-                      "available": {{ variant.available | json }},
-                      "price": {{ variant.price | json }},
-                      "option1": {{ variant.option1 | json }},
-                      "option2": {{ variant.option2 | json }},
-                      "option3": {{ variant.option3 | json }}
-                    }{%- unless forloop.last -%},{%- endunless -%}
-                  {%- endfor -%}
-                ]
-              </script>
-            </article>
-          {%- endfor -%}
-        </div>
-        {%- if paginate.pages > 1 -%}
-          <div class="bundle-collection__pagination" data-pagination>
-            <p class="bundle-collection__pagination-copy">
-              Showing {{ paginate.current_offset | plus: 1 }}-{{ paginate.current_offset | plus: paginate.page_size | at_most: paginate.items }} of {{ paginate.items }} products.
-            </p>
+<script type="application/json" data-product-options>
+{{ product.options | json }}
+</script>
+<script type="application/json" data-product-variants>
+[
+{%- for variant in product.variants -%}
+{
+"id": {{ variant.id | json }},
+"title": {{ variant.title | json }},
+"available": {{ variant.available | json }},
+"price": {{ variant.price | json }},
+"option1": {{ variant.option1 | json }},
+"option2": {{ variant.option2 | json }},
+"option3": {{ variant.option3 | json }}
+}{%- unless forloop.last -%},{%- endunless -%}
+{%- endfor -%}
+]
+</script>
+</article>
+{%- endfor -%}
+</div>
+{%- if paginate.pages > 1 -%}
+<div class="bundle-collection__pagination" data-pagination>
+<p class="bundle-collection__pagination-copy">
+Showing {{ paginate.current_offset | plus: 1 }}-{{ paginate.current_offset | plus: paginate.page_size | at_most: paginate.items }} of {{ paginate.items }} products.
+</p>
 
-            {%- if paginate.next -%}
-              <button
-                type="button"
-                class="bundle-collection__pagination-link"
-                data-load-more
-                data-next-url="{{ paginate.next.url | escape }}"
-              >
-                Load more products
-              </button>
-            {%- endif -%}
-          </div>
-        {%- endif -%}
-        {%- endpaginate -%}
-      {%- else -%}
-        <div class="bundle-collection__empty">
-          Choose a collection in the app block settings to use this block on a bundle page.
-        </div>
-      {%- endif -%}
-    </div>
+{%- if paginate.next -%}
+<button
+type="button"
+class="bundle-collection__pagination-link"
+data-load-more
+data-next-url="{{ paginate.next.url | escape }}"
+>
+Load more products
+</button>
+{%- endif -%}
+</div>
+{%- endif -%}
+{%- endpaginate -%}
+{%- else -%}
+<div class="bundle-collection__empty">
+Choose a collection in the app block settings to use this block on a bundle page.
+</div>
+{%- endif -%}
+</div>
 
-    <aside class="bundle-collection__summary">
-      <div class="bundle-collection__summary-card">
-        <h3 class="bundle-collection__summary-title">{{ block.settings.sidebar_heading }}</h3>
+<aside class="bundle-collection__summary">
+<div class="bundle-collection__summary-card">
+<h3 class="bundle-collection__summary-title">{{ block.settings.sidebar_heading }}</h3>
 
-        <div class="bundle-collection__offers" data-offer-options aria-label="Bundle offers"></div>
+<div class="bundle-collection__offers" data-offer-options aria-label="Bundle offers"></div>
 
-        <div class="bundle-collection__status" data-bundle-status>
-          Select the products and quantities you want in your bundle.
-        </div>
+<div class="bundle-collection__status" data-bundle-status>
+Select the products and quantities you want in your bundle.
+</div>
 
-        <div class="bundle-collection__progress">
-          <p class="bundle-collection__progress-text" data-progress-text>
-            Your discount is calculated from the active bundle discount at checkout.
-          </p>
-        </div>
+<div class="bundle-collection__progress">
+<p class="bundle-collection__progress-text" data-progress-text>
+Your discount is calculated from the active bundle discount at checkout.
+</p>
+</div>
 
-        <div class="bundle-collection__selected" data-selected-list>
-          <div class="bundle-collection__selected-empty">Your selected products will appear here.</div>
-        </div>
+<div class="bundle-collection__selected" data-selected-list>
+<div class="bundle-collection__selected-empty">Your selected products will appear here.</div>
+</div>
 
-        <div class="bundle-collection__totals">
-          <div class="bundle-collection__total-row">
-            <span>Subtotal</span>
-            <strong data-regular-total>{{ 0 | money }}</strong>
-          </div>
+<div class="bundle-collection__totals">
+<div class="bundle-collection__total-row">
+<span>Items subtotal</span>
+<strong data-regular-total>{{ 0 | money }}</strong>
+</div>
+<div class="bundle-collection__total-row bundle-collection__total-row--offer" data-offer-summary hidden>
+<span data-offer-label>Bundle offer</span>
+<strong data-offer-value></strong>
+</div>
+<div class="bundle-collection__total-row bundle-collection__total-row--savings" data-savings-summary hidden>
+<span>Bundle discount</span>
+<strong data-discount-total>-{{ 0 | money }}</strong>
+</div>
+<div class="bundle-collection__total-row bundle-collection__total-row--highlight" data-payable-summary hidden>
+<span>Payable total</span>
+<strong data-payable-total>{{ 0 | money }}</strong>
+</div>
+</div>
 
-        </div>
+<button
+type="button"
+class="bundle-collection__cta"
+data-bundle-submit
+disabled
+>
+{{ shopify_checkout_label }}
+</button>
 
-        <button
-          type="button"
-          class="bundle-collection__cta"
-          data-bundle-submit
-          disabled
-        >
-          {{ shopify_checkout_label }}
-        </button>
+</div>
+</aside>
+</div>
 
-      </div>
-    </aside>
-  </div>
+<div class="bundle-collection__modal" data-variant-modal hidden>
+<div class="bundle-collection__modal-backdrop" data-modal-close></div>
 
-  <div class="bundle-collection__modal" data-variant-modal hidden>
-    <div class="bundle-collection__modal-backdrop" data-modal-close></div>
+<div
+class="bundle-collection__modal-dialog"
+role="dialog"
+aria-modal="true"
+aria-labelledby="bundle-modal-title-{{ block.id }}"
+>
+<button type="button" class="bundle-collection__modal-close" data-modal-close aria-label="Close">x</button>
 
-    <div
-      class="bundle-collection__modal-dialog"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="bundle-modal-title-{{ block.id }}"
-    >
-      <button type="button" class="bundle-collection__modal-close" data-modal-close aria-label="Close">x</button>
+<p class="bundle-collection__modal-eyebrow">Select variant</p>
+<div class="bundle-collection__modal-product">
+<div class="bundle-collection__modal-media">
+<img class="bundle-collection__modal-image" data-modal-product-image alt="">
+</div>
 
-      <p class="bundle-collection__modal-eyebrow">Select variant</p>
-      <div class="bundle-collection__modal-product">
-        <div class="bundle-collection__modal-media">
-          <img class="bundle-collection__modal-image" data-modal-product-image alt="">
-        </div>
+<div class="bundle-collection__modal-copy">
+<h3 id="bundle-modal-title-{{ block.id }}" class="bundle-collection__modal-title" data-modal-product-title></h3>
+<p class="bundle-collection__modal-price" data-modal-product-price></p>
+</div>
+</div>
+<div class="bundle-collection__modal-options" data-modal-options></div>
 
-        <div class="bundle-collection__modal-copy">
-          <h3 id="bundle-modal-title-{{ block.id }}" class="bundle-collection__modal-title" data-modal-product-title></h3>
-          <p class="bundle-collection__modal-price" data-modal-product-price></p>
-        </div>
-      </div>
-      <div class="bundle-collection__modal-options" data-modal-options></div>
-
-      <button type="button" class="bundle-collection__modal-submit" data-modal-submit disabled>
-        Add to bundle
-      </button>
-    </div>
-  </div>
-
-
-  <style>.bundle-collection {--bundle-bg:{{ block.settings.background_color }};--bundle-card:{{ block.settings.card_color }};--bundle-text:{{ block.settings.text_color }};--bundle-muted:{{ block.settings.muted_text_color }};--bundle-accent:{{ block.settings.accent_color }};--bundle-accent-soft:{{ block.settings.accent_soft_color }};--bundle-border:{{ block.settings.border_color }};--bundle-shadow:0 20px 60px rgba(17,24,39,0.08);background:transparent;color:var(--bundle-text);padding:36px 16px} .bundle-collection__card-badge {position:absolute;left:12px;bottom:12px;background:#0a8a16;color:#fff;border-radius:2px;padding:6px 10px;font-size:12px;line-height:1;font-weight:500;text-transform:uppercase} .bundle-collection__card-media {position:relative;padding:0;background:#fff} .bundle-collection__shell {display:grid;grid-template-columns:minmax(0,1.6fr) minmax(320px,410px);gap:24px;align-items:start} .bundle-collection__header {margin-bottom:24px} .bundle-collection__header-media {margin:14px 0 0} .bundle-collection__header-image {display:block;width:100%;height:auto;border-radius:16px;object-fit:cover} .bundle-collection__eyebrow,.bundle-collection__modal-eyebrow {margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--bundle-accent)} .bundle-collection__title,.bundle-collection__summary-title,.bundle-collection__modal-title {margin:0;color:var(--bundle-text);line-height:1.08} .bundle-collection__title {font-size:32px;margin:0 0 6px} .bundle-collection__summary-title,.bundle-collection__modal-title {font-size:24px} .bundle-collection__summary-copy,.bundle-collection__fineprint {color:var(--bundle-muted);font-size:14px;line-height:1.5} .bundle-collection__summary-copy {margin:8px 0 0} .bundle-collection__offers {display:grid;gap:10px;margin:18px 0 14px} .bundle-collection__offer-option {display:flex;align-items:center;gap:10px;padding:7px 14px;border:1px solid var(--bundle-border);border-radius:14px;background:#fff;cursor:pointer;transition:border-color 0.2s ease,background 0.2s ease,box-shadow 0.2s ease} .bundle-collection__offer-option.is-active {border-color:var(--bundle-accent);background:var(--bundle-accent-soft);box-shadow:0 10px 24px rgba(15,118,110,0.08)} .bundle-collection__offer-option input {margin:0;accent-color:var(--bundle-accent);flex:0 0 auto} .bundle-collection__offer-option span {color:var(--bundle-text);font-size:14px;font-weight:700;line-height:1.4} .bundle-collection__grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px} .bundle-collection__card {background:var(--bundle-card);border:1px solid var(--bundle-border);border-radius:8px;overflow:hidden;transition:transform 0.2s ease,border-color 0.2s ease,box-shadow 0.2s ease} .bundle-collection__card.is-selected {transform:translateY(-3px);border-color:var(--bundle-accent);box-shadow:0 18px 40px rgba(15,118,110,0.12)} .bundle-collection__card-link {display:block;aspect-ratio:0.88 / 1;background:#fff} .bundle-collection__card-image,.bundle-collection__card-placeholder {width:100%;height:100%;display:block;object-fit:cover;object-position:top} .bundle-collection__card-placeholder {background:linear-gradient(135deg,#f6efe7,#ece3d7)} .bundle-collection__card-body {display:grid;gap:8px;padding:0} .bundle-collection__card-title {color:var(--bundle-text);text-decoration:none;font-size:14px;font-weight:500;line-height:1;padding:6px 2px 0px} .bundle-collection__card-price-row,.bundle-collection__total-row {display:flex;align-items:center;justify-content:space-between;gap:12px} .bundle-collection__card-price-row {justify-content:flex-start} .bundle-collection__card-price {font-size:16px;font-weight:500;padding:0px} .bundle-collection__card-compare {color:var(--bundle-muted);text-decoration:line-through;font-size:13px;font-weight:600} .bundle-collection__card-meta {margin:0;color:var(--bundle-muted);font-size:0px;display:none} .bundle-collection__card-toggle,.bundle-collection__cta,.bundle-collection__modal-submit {width:100%;min-height:48px;border:0;border-radius:999px;background:var(--bundle-text);color:#fff;font-size:14px;font-weight:800;cursor:pointer;transition:opacity 0.2s ease,transform 0.2s ease} .bundle-collection__card-toggle{border-top-right-radius:0;border-top-left-radius:0} .bundle-collection__card-toggle {min-height:40px;background:#040000;color:#fff;border:1px solid var(--bundle-border);border-radius:6px;display:block;width:100%;max-width:100%;border-top-right-radius:0;border-top-left-radius:0;text-transform:capitalize} .bundle-collection__card.is-selected .bundle-collection__card-toggle {background:var(--bundle-accent);border-color:var(--bundle-accent);color:#fff} .bundle-collection__cta[disabled],.bundle-collection__modal-submit[disabled] {opacity:0.45;cursor:not-allowed} .bundle-collection__summary {position:sticky;top:24px} .bundle-collection__summary-card {background:rgba(255,255,255,0.94);border:1px solid var(--bundle-border);border-radius:10px;padding:10px 12px;box-shadow:var(--bundle-shadow)} .bundle-collection__status {margin:6px 0 8px;padding:6px 14px;border-radius:10px;background:var(--bundle-accent-soft);border:1px solid var(--bundle-accent);font-size:13px;font-weight:700} .bundle-collection__progress {margin:0 0 16px;padding:10px 14px;border-radius:16px;background:#fff;border:1px solid var(--bundle-border)} .bundle-collection__progress-steps {display:grid;{% if show_offer_2_fixed and show_offer_3_fixed %} grid-template-columns:repeat(3,1fr);{% elsif show_offer_2_fixed %} grid-template-columns:repeat(2,1fr);{% else %} grid-template-columns:repeat(3,1fr);{% endif %} gap:10px;margin-bottom:8px} .bundle-collection__progress-steps span {display:flex;align-items:center;justify-content:center;min-height:38px;border-radius:999px;border:1px solid var(--bundle-border);background:#f8f5ef;color:var(--bundle-muted);font-size:13px;font-weight:800} .bundle-collection__progress-steps span.is-active {background:var(--bundle-accent);border-color:var(--bundle-accent);color:#fff} .bundle-collection__progress-text {margin:0;font-size:12px;color:var(--bundle-muted);text-align:center} .bundle-collection__selected {display:grid;gap:10px;margin-bottom:16px} .bundle-collection__selected-track {display:contents} .bundle-collection__selected-empty,.bundle-collection__selected-item {border-radius:16px;border:1px dashed var(--bundle-border);padding:10px 14px;background:rgba(255,255,255,0.76)} .bundle-collection__selected-item {display:flex;align-items:center;justify-content:space-between;gap:12px;border-style:solid} .bundle-collection__selected-main {display:flex;align-items:center;gap:12px;min-width:0} .bundle-collection__selected-thumb {flex:0 0 52px;width:52px;height:52px;border-radius:12px;object-fit:cover;background:#f4efe8;display:block} .bundle-collection__selected-copy {min-width:0} .bundle-collection__selected-copy strong,.bundle-collection__selected-side strong {display:block;font-size:14px;color:var(--bundle-text)} .bundle-collection__selected-copy p {margin:4px 0 0;color:var(--bundle-muted);font-size:12px} .bundle-collection__selected-side {flex:0 0 auto;text-align:right} .bundle-collection__selected-remove {border:0;background:transparent;color:var(--bundle-accent);font-size:12px;font-weight:700;cursor:pointer;padding:0} .bundle-collection__selected-slot {display:none;align-items:center;justify-content:center;width:52px;height:52px;border-radius:14px;border:1px dashed var(--bundle-border);background:#fff;color:var(--bundle-muted);font-size:24px;font-weight:800} .bundle-collection__totals {display:grid;gap:12px;margin-bottom:16px} .bundle-collection__total-row {font-size:14px;color:var(--bundle-muted)} .bundle-collection__total-row strong {color:var(--bundle-text);font-size:15px} .bundle-collection__total-row--highlight {padding:14px 16px;border-radius:16px;background:#fff;border:1px solid var(--bundle-accent)} .bundle-collection__total-row--savings strong {color:var(--bundle-accent)} .bundle-collection__fineprint {margin:12px 0 0;text-align:center} .bundle-collection__empty {padding:28px;border-radius:8px;background:rgba(255,255,255,0.75);border:1px solid var(--bundle-border)} .bundle-collection__pagination {display:grid;gap:12px;justify-items:center;margin-top:22px;text-align:center} .bundle-collection__pagination-copy {margin:0;color:var(--bundle-muted);font-size:13px;line-height:1.5} .bundle-collection__pagination-link {display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 20px;border-radius:999px;border:1px solid var(--bundle-border);background:#fff;color:var(--bundle-text);font-size:14px;font-weight:700;text-decoration:none;transition:transform 0.2s ease,box-shadow 0.2s ease} .bundle-collection__pagination-link:disabled {opacity:0.7;cursor:progress;transform:none} .bundle-collection__pagination-link:hover {transform:translateY(-1px);box-shadow:0 10px 24px rgba(15,23,42,0.08)} .bundle-collection__modal[hidden] {display:none} .bundle-collection__modal {position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;padding:20px} .bundle-collection__modal-backdrop {position:absolute;inset:0;background:rgba(15,23,42,0.5)} .bundle-collection__modal-dialog {position:relative;width:min(100%,520px);max-height:calc(100vh - 40px);overflow:auto;background:#fff;border-radius:24px;padding:24px;box-shadow:0 30px 80px rgba(15,23,42,0.22)} .bundle-collection__modal-close {position:absolute;top:16px;right:16px;width:38px;height:38px;border-radius:999px;border:0;background:#f4f1eb;color:var(--bundle-text);font-size:24px;cursor:pointer} .bundle-collection__modal-options {display:grid;gap:18px;margin:18px 0 20px} .bundle-collection__modal-product {display:grid;grid-template-columns:108px minmax(0,1fr);gap:16px;align-items:center} .bundle-collection__modal-media {border-radius:18px;overflow:hidden;background:#f4efe8;aspect-ratio:1} .bundle-collection__modal-image {width:100%;height:100%;display:block;object-fit:cover} .bundle-collection__modal-copy {display:grid;gap:8px} .bundle-collection__modal-price {margin:0;color:var(--bundle-text);font-size:18px;font-weight:800} .bundle-collection__option-group {display:grid;gap:10px} .bundle-collection__option-title {margin:0;color:var(--bundle-muted);font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase} .bundle-collection__option-values {display:flex;flex-wrap:wrap;gap:10px} .bundle-collection__variant-chip {border:1px solid var(--bundle-border);border-radius:999px;background:#fff;color:var(--bundle-text);min-height:42px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer} .bundle-collection__variant-chip.is-selected {border-color:var(--bundle-accent);background:var(--bundle-accent-soft)} .bundle-collection__variant-chip[disabled] {opacity:0.45;cursor:not-allowed} @media (max-width:1024px) {.bundle-collection {padding-bottom:140px} .bundle-collection__shell {grid-template-columns:1fr} .bundle-collection__summary {position:fixed;left:10px;right:10px;bottom:10px;top:auto;z-index:30;margin:0} .bundle-collection__summary-card {display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,190px);gap:10px 12px;align-items:center;max-width:680px;margin-left:auto;margin-right:auto;padding:12px 14px;border-radius:16px;box-shadow:0 10px 24px rgba(17,24,39,0.12)} .bundle-collection__summary-title,.bundle-collection__summary-copy,.bundle-collection__offers,.bundle-collection__progress,.bundle-collection__fineprint,.bundle-collection__total-row:nth-child(2),.bundle-collection__total-row:nth-child(3) {display:none} .bundle-collection__status {grid-column:1 / -1;margin:0;padding:0;border:0;background:transparent;color:var(--bundle-text);font-size:12px;line-height:1.3} .bundle-collection__selected {margin:0;min-width:0} .bundle-collection__selected-track {display:flex;align-items:center;gap:8px;min-width:0;justify-content:center} .bundle-collection__selected-empty {width:100%;border-style:solid;font-size:12px;text-align:center;padding:10px 12px} .bundle-collection__selected-item {border:0;padding:0;background:transparent;gap:0;position:relative} .bundle-collection__selected-main {gap:0} .bundle-collection__selected-copy {display:none} .bundle-collection__selected-side {position:absolute;top:-6px;right:-6px;display:flex;align-items:center;justify-content:center;z-index:1} .bundle-collection__selected-side strong {display:none} .bundle-collection__selected-remove {display:inline-flex;align-items:center;justify-content:center;width:10px;height:10px;min-width:10px;padding:7px;border-radius:999px;border:0;background:rgba(17,24,39,0.9);color:transparent;cursor:pointer;box-shadow:0 4px 12px rgba(15,23,42,0.24);font-size:0} .bundle-collection__selected-remove::before {content:'x';color:#fff;font-size:14px;font-weight:700;line-height:1;position:absolute} .bundle-collection__selected-thumb,.bundle-collection__selected-slot {width:42px;height:42px;flex-basis:42px;border-radius:10px} .bundle-collection__selected-slot {display:flex;font-size:18px} .bundle-collection__totals {gap:4px;margin:0} .bundle-collection__total-row {font-size:12px} .bundle-collection__total-row strong {font-size:13px} .bundle-collection__total-row--highlight {padding:0;border:0;background:transparent;border-radius:0} .bundle-collection__cta {grid-column:2;min-height:42px;border-radius:12px;font-size:13px;padding:10px 14px}} @media (max-width:768px) {.bundle-collection {padding-top:24px;padding-bottom:132px;padding-left:0;padding-right:0} .bundle-collection__title {font-size:24px} .bundle-collection__shell {gap:18px} .bundle-collection__grid {grid-template-columns:repeat(2,minmax(0,1fr))} .bundle-collection__summary-card {grid-template-columns:1fr;max-width:none} .bundle-collection__totals,.bundle-collection__cta {grid-column:auto} .bundle-collection__summary-card {gap:10px;padding:12px;border-radius:16px;box-shadow:0 18px 42px rgba(17,24,39,0.18)} .bundle-collection__status {font-size:12px} .bundle-collection__selected-track {gap:6px;overflow-x:auto;padding-bottom:2px;padding-top:8px;} .bundle-collection__selected-thumb,.bundle-collection__selected-slot {width:40px;height:40px;flex-basis:40px} .bundle-collection__totals {gap:6px} .bundle-collection__total-row {font-size:12px} .bundle-collection__total-row strong {font-size:14px} 
-  
-  .bundle-collection__card-price-row {
-    justify-content: flex-start;
-    padding: 2px 2px 0px;
+<button type="button" class="bundle-collection__modal-submit" data-modal-submit disabled>
+Add to bundle
+</button>
+</div>
+</div>
+<style>.bundle-collection {--bundle-bg:{{ block.settings.background_color }};--bundle-card:{{ block.settings.card_color }};--bundle-text:{{ block.settings.text_color }};--bundle-muted:{{ block.settings.muted_text_color }};--bundle-accent:{{ block.settings.accent_color }};--bundle-accent-soft:{{ block.settings.accent_soft_color }};--bundle-border:#e7ddd0;--bundle-shadow:0 20px 60px rgba(17,24,39,0.08);background:transparent;color:var(--bundle-text);padding:36px 16px} .bundle-collection__card-badge {position:absolute;left:12px;bottom:12px;background:#0a8a16;color:#fff;border-radius:2px;padding:6px 10px;font-size:12px;line-height:1;font-weight:500;text-transform:uppercase} .bundle-collection__card-media {position:relative;padding:0;background:#fff} .bundle-collection__shell {display:grid;grid-template-columns:minmax(0,1.6fr) minmax(320px,410px);gap:24px;align-items:start} .bundle-collection__header {margin-bottom:24px} .bundle-collection__header-media {margin:14px 0 0} .bundle-collection__header-image {display:block;width:100%;height:auto;border-radius:16px;object-fit:cover} .bundle-collection__eyebrow,.bundle-collection__modal-eyebrow {margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--bundle-accent)} .bundle-collection__title,.bundle-collection__summary-title,.bundle-collection__modal-title {margin:0;color:var(--bundle-text);line-height:1.08} .bundle-collection__title {font-size:32px;margin:0 0 6px} .bundle-collection__summary-title,.bundle-collection__modal-title {font-size:24px} .bundle-collection__summary-copy,.bundle-collection__fineprint {color:var(--bundle-muted);font-size:14px;line-height:1.5} .bundle-collection__summary-copy {margin:8px 0 0} .bundle-collection__offers {display:grid;gap:10px;margin:18px 0 14px} .bundle-collection__offer-option {display:flex;align-items:center;gap:10px;padding:7px 14px;border:1px solid var(--bundle-border);border-radius:14px;background:#fff;cursor:pointer;transition:border-color 0.2s ease,background 0.2s ease,box-shadow 0.2s ease} .bundle-collection__offer-option.is-active {border-color:var(--bundle-accent);background:var(--bundle-accent-soft);box-shadow:0 10px 24px rgba(15,118,110,0.08)} .bundle-collection__offer-option input {margin:0;accent-color:var(--bundle-accent);flex:0 0 auto} .bundle-collection__offer-option span {color:var(--bundle-text);font-size:14px;font-weight:700;line-height:1.4} .bundle-collection__grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px} .bundle-collection__card {background:var(--bundle-card);border:1px solid var(--bundle-border);border-radius:8px;overflow:hidden;transition:transform 0.2s ease,border-color 0.2s ease,box-shadow 0.2s ease} .bundle-collection__card.is-selected {transform:translateY(-3px);border-color:var(--bundle-accent);box-shadow:0 18px 40px rgba(15,118,110,0.12)} .bundle-collection__card-link {display:block;aspect-ratio:0.88 / 1;background:#fff} .bundle-collection__card-image,.bundle-collection__card-placeholder {width:100%;height:100%;display:block;object-fit:cover;object-position:top} .bundle-collection__card-placeholder {background:linear-gradient(135deg,#f6efe7,#ece3d7)} .bundle-collection__card-body {display:grid;gap:8px;padding:0} .bundle-collection__card-title {color:var(--bundle-text);text-decoration:none;font-size:14px;font-weight:500;line-height:1;padding:6px 2px 0px} .bundle-collection__card-price-row,.bundle-collection__total-row {display:flex;align-items:center;justify-content:space-between;gap:12px} .bundle-collection__card-price-row {justify-content:flex-start} .bundle-collection__card-price {font-size:16px;font-weight:500;padding:0px} .bundle-collection__card-compare {color:var(--bundle-muted);text-decoration:line-through;font-size:13px;font-weight:600} .bundle-collection__card-meta {margin:0;color:var(--bundle-muted);font-size:0px;display:none} .bundle-collection__card-toggle,.bundle-collection__cta,.bundle-collection__modal-submit {width:100%;min-height:48px;border:0;border-radius:999px;background:var(--bundle-text);color:#fff;font-size:14px;font-weight:800;cursor:pointer;transition:opacity 0.2s ease,transform 0.2s ease} .bundle-collection__card-toggle{border-top-right-radius:0;border-top-left-radius:0} .bundle-collection__card-toggle {min-height:40px;background:#040000;color:#fff;border:1px solid var(--bundle-border);border-radius:6px;display:block;width:100%;max-width:100%;border-top-right-radius:0;border-top-left-radius:0;text-transform:capitalize} .bundle-collection__card.is-selected .bundle-collection__card-toggle {background:var(--bundle-accent);border-color:var(--bundle-accent);color:#fff} .bundle-collection__cta[disabled],.bundle-collection__modal-submit[disabled] {opacity:0.45;cursor:not-allowed} .bundle-collection__summary {position:sticky;top:24px} .bundle-collection__summary-card {background:rgba(255,255,255,0.94);border:1px solid var(--bundle-border);border-radius:10px;padding:10px 12px;box-shadow:var(--bundle-shadow)} .bundle-collection__status {margin:6px 0 8px;padding:6px 14px;border-radius:10px;background:var(--bundle-accent-soft);border:1px solid var(--bundle-accent);font-size:13px;font-weight:700} .bundle-collection__progress {margin:0 0 16px;padding:10px 14px;border-radius:16px;background:#fff;border:1px solid var(--bundle-border)} .bundle-collection__progress-steps {display:grid;{% if show_offer_2_fixed and show_offer_3_fixed %} grid-template-columns:repeat(3,1fr);{% elsif show_offer_2_fixed %} grid-template-columns:repeat(2,1fr);{% else %} grid-template-columns:repeat(3,1fr);{% endif %} gap:10px;margin-bottom:8px} .bundle-collection__progress-steps span {display:flex;align-items:center;justify-content:center;min-height:38px;border-radius:999px;border:1px solid var(--bundle-border);background:#f8f5ef;color:var(--bundle-muted);font-size:13px;font-weight:800} .bundle-collection__progress-steps span.is-active {background:var(--bundle-accent);border-color:var(--bundle-accent);color:#fff} .bundle-collection__progress-text {margin:0;font-size:12px;color:var(--bundle-muted);text-align:center} .bundle-collection__selected {display:grid;gap:10px;margin-bottom:16px} .bundle-collection__selected-track {display:contents} .bundle-collection__selected-empty,.bundle-collection__selected-item {border-radius:16px;border:1px dashed var(--bundle-border);padding:10px 14px;background:rgba(255,255,255,0.76)} .bundle-collection__selected-item {display:flex;align-items:center;justify-content:space-between;gap:12px;border-style:solid} .bundle-collection__selected-main {display:flex;align-items:center;gap:12px;min-width:0} .bundle-collection__selected-thumb {flex:0 0 52px;width:52px;height:52px;border-radius:12px;object-fit:cover;background:#f4efe8;display:block} .bundle-collection__selected-copy {min-width:0} .bundle-collection__selected-copy strong,.bundle-collection__selected-side strong {display:block;font-size:14px;color:var(--bundle-text)} .bundle-collection__selected-copy p {margin:4px 0 0;color:var(--bundle-muted);font-size:12px} .bundle-collection__selected-side {flex:0 0 auto;text-align:right} .bundle-collection__selected-remove {border:0;background:transparent;color:var(--bundle-accent);font-size:12px;font-weight:700;cursor:pointer;padding:0} .bundle-collection__selected-slot {display:none;align-items:center;justify-content:center;width:52px;height:52px;border-radius:14px;border:1px dashed var(--bundle-border);background:#fff;color:var(--bundle-muted);font-size:24px;font-weight:800} .bundle-collection__totals {display:grid;gap:12px;margin-bottom:16px} .bundle-collection__total-row {font-size:14px;color:var(--bundle-muted)} .bundle-collection__total-row strong {color:var(--bundle-text);font-size:15px} .bundle-collection__total-row--highlight {padding:14px 16px;border-radius:16px;background:#fff;border:1px solid var(--bundle-accent)} .bundle-collection__total-row--savings strong {color:var(--bundle-accent)} .bundle-collection__fineprint {margin:12px 0 0;text-align:center} .bundle-collection__empty {padding:28px;border-radius:8px;background:rgba(255,255,255,0.75);border:1px solid var(--bundle-border)} .bundle-collection__pagination {display:grid;gap:12px;justify-items:center;margin-top:22px;text-align:center} .bundle-collection__pagination-copy {margin:0;color:var(--bundle-muted);font-size:13px;line-height:1.5} .bundle-collection__pagination-link {display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 20px;border-radius:999px;border:1px solid var(--bundle-border);background:#fff;color:var(--bundle-text);font-size:14px;font-weight:700;text-decoration:none;transition:transform 0.2s ease,box-shadow 0.2s ease} .bundle-collection__pagination-link:disabled {opacity:0.7;cursor:progress;transform:none} .bundle-collection__pagination-link:hover {transform:translateY(-1px);box-shadow:0 10px 24px rgba(15,23,42,0.08)} .bundle-collection__modal[hidden] {display:none} .bundle-collection__modal {position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;padding:20px} .bundle-collection__modal-backdrop {position:absolute;inset:0;background:rgba(15,23,42,0.5)} .bundle-collection__modal-dialog {position:relative;width:min(100%,520px);max-height:calc(100vh - 40px);overflow:auto;background:#fff;border-radius:24px;padding:24px;box-shadow:0 30px 80px rgba(15,23,42,0.22)} .bundle-collection__modal-close {position:absolute;top:16px;right:16px;width:38px;height:38px;border-radius:999px;border:0;background:#f4f1eb;color:var(--bundle-text);font-size:24px;cursor:pointer} .bundle-collection__modal-options {display:grid;gap:18px;margin:18px 0 20px} .bundle-collection__modal-product {display:grid;grid-template-columns:108px minmax(0,1fr);gap:16px;align-items:center} .bundle-collection__modal-media {border-radius:18px;overflow:hidden;background:#f4efe8;aspect-ratio:1} .bundle-collection__modal-image {width:100%;height:100%;display:block;object-fit:cover} .bundle-collection__modal-copy {display:grid;gap:8px} .bundle-collection__modal-price {margin:0;color:var(--bundle-text);font-size:18px;font-weight:800} .bundle-collection__option-group {display:grid;gap:10px} .bundle-collection__option-title {margin:0;color:var(--bundle-muted);font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase} .bundle-collection__option-values {display:flex;flex-wrap:wrap;gap:10px} .bundle-collection__variant-chip {border:1px solid var(--bundle-border);border-radius:999px;background:#fff;color:var(--bundle-text);min-height:42px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer} .bundle-collection__variant-chip.is-selected {border-color:var(--bundle-accent);background:var(--bundle-accent-soft)} .bundle-collection__variant-chip[disabled] {opacity:0.45;cursor:not-allowed} @media (max-width:1024px) {.bundle-collection {padding-bottom:140px} .bundle-collection__shell {grid-template-columns:1fr} .bundle-collection__summary {position:fixed;left:10px;right:10px;bottom:10px;top:auto;z-index:30;margin:0} .bundle-collection__summary-card {display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,190px);gap:10px 12px;align-items:center;max-width:680px;margin-left:auto;margin-right:auto;padding:12px 14px;border-radius:16px;box-shadow:0 10px 24px rgba(17,24,39,0.12)} .bundle-collection__summary-title,.bundle-collection__summary-copy,.bundle-collection__offers,.bundle-collection__progress,.bundle-collection__fineprint,.bundle-collection__total-row:nth-child(2),.bundle-collection__total-row:nth-child(3) {display:none} .bundle-collection__status {grid-column:1 / -1;margin:0;padding:0;border:0;background:transparent;color:var(--bundle-text);font-size:12px;line-height:1.3} .bundle-collection__selected {margin:0;min-width:0} .bundle-collection__selected-track {display:flex;align-items:center;gap:8px;min-width:0;justify-content:center} .bundle-collection__selected-empty {width:100%;border-style:solid;font-size:12px;text-align:center;padding:10px 12px} .bundle-collection__selected-item {border:0;padding:0;background:transparent;gap:0;position:relative} .bundle-collection__selected-main {gap:0} .bundle-collection__selected-copy {display:none} .bundle-collection__selected-side {position:absolute;top:-6px;right:-6px;display:flex;align-items:center;justify-content:center;z-index:1} .bundle-collection__selected-side strong {display:none} .bundle-collection__selected-remove {display:inline-flex;align-items:center;justify-content:center;width:10px;height:10px;min-width:10px;padding:7px;border-radius:999px;border:0;background:rgba(17,24,39,0.9);color:transparent;cursor:pointer;box-shadow:0 4px 12px rgba(15,23,42,0.24);font-size:0} .bundle-collection__selected-remove::before {content:'x';color:#fff;font-size:14px;font-weight:700;line-height:1;position:absolute} .bundle-collection__selected-thumb,.bundle-collection__selected-slot {width:42px;height:42px;flex-basis:42px;border-radius:10px} .bundle-collection__selected-slot {display:flex;font-size:18px} .bundle-collection__totals {gap:4px;margin:0} .bundle-collection__total-row {font-size:12px} .bundle-collection__total-row strong {font-size:13px} .bundle-collection__total-row--highlight {padding:0;border:0;background:transparent;border-radius:0} .bundle-collection__cta {grid-column:2;min-height:42px;border-radius:12px;font-size:13px;padding:10px 14px}} @media (max-width:768px) {.bundle-collection {padding-top:24px;padding-bottom:132px;padding-left:0;padding-right:0} .bundle-collection__title {font-size:24px} .bundle-collection__shell {gap:18px} .bundle-collection__grid {grid-template-columns:repeat(2,minmax(0,1fr))} .bundle-collection__summary-card {grid-template-columns:1fr;max-width:none} .bundle-collection__totals,.bundle-collection__cta {grid-column:auto} .bundle-collection__summary-card {gap:10px;padding:12px;border-radius:16px;box-shadow:0 18px 42px rgba(17,24,39,0.18)} .bundle-collection__status {font-size:12px} .bundle-collection__selected-track {gap:6px;overflow-x:auto;padding-bottom:2px;padding-top:8px;} .bundle-collection__selected-thumb,.bundle-collection__selected-slot {width:40px;height:40px;flex-basis:40px} .bundle-collection__totals {gap:6px} .bundle-collection__total-row {font-size:12px} .bundle-collection__total-row strong {font-size:14px}
+.bundle-collection__card-price-row {
+justify-content: flex-start;
+padding: 2px 2px 0px;
+}
+h3.bundle-collection__summary-title {
+    text-transform: uppercase;
 }
 .bundle-collection__card-price {
-    font-size: 12px;
-    font-weight: 500;
-    padding: 0 2px;
+font-size: 12px;
+font-weight: 500;
+padding: 0 2px;
 }
 .bundle-collection__card-title {
 
-    font-size: 13px;
+font-size: 13px;
 
 }
-  .bundle-collection__cta {min-height:40px} .bundle-collection__modal-product {grid-template-columns:1fr} .bundle-collection__modal-media {max-width:180px}}</style>
-
-  <style>
-    .bundle-collection__card-badge--sold-out {
-      background: #b42318;
-    }
-
-    .bundle-collection__card:has(.bundle-collection__card-badge--sold-out) {
-      opacity: 0.72;
-    }
-
-    .bundle-collection__card-toggle[aria-disabled="true"] {
-      cursor: not-allowed;
-      opacity: 0.55;
-    }
-
-    @media (min-width: 1025px) {
-      .bundle-collection__summary {
-        height: calc(100dvh - 48px);
-        overflow: hidden;
-      }
-
-      .bundle-collection__summary-card {
-        height: 100%;
-        max-height: calc(100dvh - 48px);
-        overflow-y: auto;
-        overscroll-behavior: contain;
-      }
-
-      .bundle-collection__cta {
-        position: sticky;
-        bottom: 0;
-        z-index: 1;
-        box-shadow: 0 -10px 18px rgba(255, 255, 255, 0.94);
-      }
-    }
-  </style>
-
-  <script>
-    (() => {
-      const section = document.querySelector('.bundle-collection--{{ block.id }}');
-      if (!section) return;
-
-      const checkoutMode = section.dataset.checkoutMode || 'shopify';
-      const shopifyCheckoutLabel = section.dataset.shopifyCheckoutLabel || 'Checkout securely';
-      const customCheckoutScriptTemplate = section.dataset.customCheckoutScript || '';
-      const customCheckoutLabel = section.dataset.checkoutLabel || 'Custom checkout';
-      const onePerVariant = section.dataset.onePerVariant === 'true';
-      const bundleTiersValue = section.dataset.bundleTiers || '[]';
-      const shopRoot = section.dataset.shopRoot || '/';
-      const shopUrl = section.dataset.shopUrl || window.location.origin;
-      const currencyCode = section.dataset.currencyCode || 'USD';
-
-      let cards = Array.from(section.querySelectorAll('[data-bundle-card]'));
-      const grid = section.querySelector('.bundle-collection__grid');
-      const offerOptions = section.querySelector('[data-offer-options]');
-      const paginationCopy = section.querySelector('.bundle-collection__pagination-copy');
-      const loadMoreButton = section.querySelector('[data-load-more]');
-      const regularTotalEl = section.querySelector('[data-regular-total]');
-      const submitButton = section.querySelector('[data-bundle-submit]');
-      const selectedList = section.querySelector('[data-selected-list]');
-      const progressText = section.querySelector('[data-progress-text]');
-      const bundleStatus = section.querySelector('[data-bundle-status]');
-      const modal = section.querySelector('[data-variant-modal]');
-      const modalTitle = section.querySelector('[data-modal-product-title]');
-      const modalImage = section.querySelector('[data-modal-product-image]');
-      const modalPrice = section.querySelector('[data-modal-product-price]');
-      const modalOptions = section.querySelector('[data-modal-options]');
-      const modalSubmit = section.querySelector('[data-modal-submit]');
-      const modalCloseButtons = Array.from(section.querySelectorAll('[data-modal-close]'));
-
-      const selectedItems = [];
-      let modalContext = null;
-      let modalVariants = [];
-      let modalOptionNames = [];
-      let modalSelection = {};
-      let pendingVariant = null;
-      let bundleTiers = [];
-      const totalProducts = Number(section.dataset.totalProducts || cards.length);
-
-      const formatMoney = (amountInCents) => {
-        return new Intl.NumberFormat(undefined, {
-          style: 'currency',
-          currency: currencyCode
-        }).format((Number(amountInCents) || 0) / 100);
-      };
-
-      const createLineId = () => Math.random().toString(36).slice(2, 10);
-      const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
-      })[character]);
-      const getCheckoutButtonLabel = () => {
-        return selectedItems.length
-          ? (checkoutMode === 'custom' ? customCheckoutLabel : shopifyCheckoutLabel)
-          : 'Select products';
-      };
-
-      const parseBundleTiers = () => {
-        try {
-          const tiers = JSON.parse(bundleTiersValue);
-          bundleTiers = (Array.isArray(tiers) ? tiers : [])
-            .filter((tier) => tier && tier.enabled !== false)
-            .map((tier) => ({
-              quantity: Number(tier.quantity),
-              discountType: tier.discountType === 'fixed_price' ? 'fixed_price' : 'percentage',
-              value: Number(tier.value)
-            }))
-            .filter((tier) => Number.isInteger(tier.quantity) && tier.quantity >= 2 && tier.value > 0)
-            .sort((left, right) => left.quantity - right.quantity);
-        } catch (error) {
-          bundleTiers = [];
-        }
-      };
-
-      const getTierLabel = (tier) => tier.discountType === 'fixed_price'
-        ? 'Buy ' + tier.quantity + ' for ' + formatMoney(tier.value * 100)
-        : 'Buy ' + tier.quantity + ' & save ' + tier.value + '%';
-
-      const getQualifiedTier = () => bundleTiers
-        .filter((tier) => selectedItems.length >= tier.quantity)
-        .at(-1) || null;
-
-      const getBundleLimit = () => bundleTiers.length
-        ? Math.max(...bundleTiers.map((tier) => tier.quantity))
-        : Infinity;
-
-      const renderOfferOptions = () => {
-        if (!offerOptions) return;
-        offerOptions.innerHTML = bundleTiers.map((tier) => {
-          const isQualified = selectedItems.length >= tier.quantity;
-          return '<div class="bundle-collection__offer-option' + (isQualified ? ' is-active' : '') + '"><span>'
-            + escapeHtml(getTierLabel(tier)) + '</span></div>';
-        }).join('');
-      };
-
-      const getProductSelectedCount = (productId) => {
-        return selectedItems.filter((item) => item.productId === productId).length;
-      };
-
-      const updatePaginationText = () => {
-        if (!paginationCopy) return;
-        paginationCopy.textContent = 'Showing 1-' + cards.length + ' of ' + totalProducts + ' products.';
-      };
-
-      const setLoadMoreState = (nextUrl) => {
-        if (!loadMoreButton) return;
-
-        loadMoreButton.dataset.nextUrl = nextUrl || '';
-        loadMoreButton.hidden = !nextUrl;
-        loadMoreButton.disabled = false;
-        loadMoreButton.textContent = 'Load more products';
-      };
-
-      const getVariantDisplayTitle = (variant) => {
-        const parts = [variant.option1, variant.option2, variant.option3].filter(Boolean);
-        if (parts.length) return parts.join(' / ');
-        return variant.title || 'Default';
-      };
-
-      const matchesSelection = (variant, selection) => {
-        return [1, 2, 3].every((index) => {
-          const key = 'option' + index;
-          if (!selection[key]) return true;
-          return variant[key] === selection[key];
-        });
-      };
-
-      const findVariantFromSelection = () => {
-        return modalVariants.find((variant) => variant.available && matchesSelection(variant, modalSelection))
-          || modalVariants.find((variant) => matchesSelection(variant, modalSelection))
-          || null;
-      };
-
-      const getAvailableValuesForIndex = (optionIndex) => {
-        const key = 'option' + optionIndex;
-        const values = [];
-
-        modalVariants.forEach((variant) => {
-          const partialSelection = { ...modalSelection };
-          delete partialSelection[key];
-
-          if (matchesSelection(variant, partialSelection) && !values.includes(variant[key])) {
-            values.push(variant[key]);
-          }
-        });
-
-        return values.filter(Boolean);
-      };
-
-      const syncModalSelectionUi = () => {
-        Array.from(modalOptions.querySelectorAll('[data-option-index]')).forEach((button) => {
-          const optionIndex = button.dataset.optionIndex;
-          const optionValue = button.dataset.optionValue;
-          const key = 'option' + optionIndex;
-          const availableValues = getAvailableValuesForIndex(Number(optionIndex));
-          const isAvailable = availableValues.includes(optionValue);
-          const isSelected = modalSelection[key] === optionValue;
-
-          button.classList.toggle('is-selected', isSelected);
-          button.disabled = !isAvailable;
-        });
-
-        pendingVariant = findVariantFromSelection();
-        modalSubmit.disabled = !pendingVariant || !pendingVariant.available;
-        modalPrice.textContent = pendingVariant ? formatMoney(pendingVariant.price) : '';
-      };
-
-      const renderModalOptionGroups = () => {
-        modalOptions.innerHTML = '';
-
-        modalOptionNames.forEach((name, index) => {
-          const optionIndex = index + 1;
-          const values = [];
-
-          modalVariants.forEach((variant) => {
-            const value = variant['option' + optionIndex];
-            if (value && !values.includes(value)) values.push(value);
-          });
-
-          if (!values.length) return;
-
-          const groupMarkup = `
-            <div class="bundle-collection__option-group">
-              <p class="bundle-collection__option-title">${escapeHtml(name)}</p>
-              <div class="bundle-collection__option-values">
-                ${values.map((value) => `
-                  <button
-                    type="button"
-                    class="bundle-collection__variant-chip"
-                    data-option-index="${optionIndex}"
-                    data-option-value="${String(value).replace(/"/g, '&quot;')}"
-                  >
-                    ${escapeHtml(value)}
-                  </button>
-                `).join('')}
-              </div>
-            </div>
-          `;
-
-          modalOptions.insertAdjacentHTML('beforeend', groupMarkup);
-        });
-
-        syncModalSelectionUi();
-      };
-
-      const bindCardInteractions = (card) => {
-        const toggle = card.querySelector('[data-card-toggle]');
-        if (!toggle || toggle.dataset.bound === 'true') return;
-
-        toggle.dataset.bound = 'true';
-        toggle.addEventListener('click', () => {
-          if (card.dataset.productAvailable !== 'true') {
-            progressText.textContent = 'This product is currently out of stock.';
-            return;
-          }
-
-          if (selectedItems.length >= getBundleLimit()) {
-            progressText.textContent = 'This bundle already has the maximum of ' + getBundleLimit() + ' items.';
-            return;
-          }
-
-          if (card.dataset.hasMultipleVariants === 'true') {
-            openModal(card);
-            return;
-          }
-
-          commitSelection({
-            productId: Number(card.dataset.productId),
-            productTitle: card.dataset.productTitle,
-            image: card.dataset.productImage,
-            variantId: Number(card.dataset.defaultVariantId),
-            variantTitle: card.dataset.defaultVariantTitle,
-            price: Number(card.dataset.defaultPrice || 0)
-          });
-        });
-      };
-
-      const syncCards = () => {
-        cards.forEach((card) => {
-          const productId = Number(card.dataset.productId);
-          const toggle = card.querySelector('[data-card-toggle]');
-          const hasVariants = card.dataset.hasMultipleVariants === 'true';
-          const isAvailable = card.dataset.productAvailable === 'true';
-          const selectedCount = getProductSelectedCount(productId);
-
-          if (!toggle) return;
-
-          card.classList.toggle('is-selected', selectedCount > 0);
-          toggle.setAttribute('aria-pressed', selectedCount > 0 ? 'true' : 'false');
-          if (!isAvailable) {
-            toggle.textContent = 'Out of stock';
-            toggle.disabled = true;
-            toggle.setAttribute('aria-disabled', 'true');
-            return;
-          }
-          if (selectedItems.length >= getBundleLimit()) {
-            toggle.textContent = 'Bundle full';
-            toggle.disabled = true;
-            toggle.setAttribute('aria-disabled', 'true');
-            return;
-          }
-          if (onePerVariant && !hasVariants && selectedCount > 0) {
-            toggle.textContent = 'Already added';
-            toggle.disabled = true;
-            return;
-          }
-          toggle.disabled = false;
-          if (hasVariants) {
-            toggle.textContent = selectedCount > 0 ? '+ Add one more' : 'Choose options';
-          } else {
-            toggle.textContent = selectedCount > 0 ? '+ Add one more' : 'Add to bundle';
-          }
-        });
-      };
-
-      const renderSelected = () => {
-        if (!selectedItems.length) {
-          selectedList.innerHTML = '<div class="bundle-collection__selected-empty">Your selected products will appear here.</div>';
-          return;
-        }
-
-        const itemsMarkup = selectedItems.map((item) => `
-          <div class="bundle-collection__selected-item">
-            <div class="bundle-collection__selected-main">
-              ${item.image ? `<img class="bundle-collection__selected-thumb" src="${escapeHtml(item.image)}" alt="${escapeHtml(item.productTitle)}">` : '<div class="bundle-collection__selected-thumb"></div>'}
-              <div class="bundle-collection__selected-copy">
-                <strong>${escapeHtml(item.productTitle.slice(0, 24))}..</strong>
-                <p>${escapeHtml(item.variantTitle)}</p>
-              </div>
-            </div>
-            <div class="bundle-collection__selected-side">
-              <strong>${formatMoney(item.price)}</strong>
-              <button type="button" class="bundle-collection__selected-remove" data-remove-line="${item.lineId}">Remove</button>
-            </div>
-          </div>
-        `).join('');
-
-        selectedList.innerHTML = `
-          <div class="bundle-collection__selected-track">
-            ${itemsMarkup}
-          </div>
-        `;
-      };
-
-      const updateSummary = () => {
-        const regularTotal = selectedItems.reduce((sum, item) => sum + item.price, 0);
-        const qualifiedTier = getQualifiedTier();
-
-        regularTotalEl.textContent = formatMoney(regularTotal);
-        if (selectedItems.length) {
-          const tierMessage = qualifiedTier
-            ? getTierLabel(qualifiedTier) + ' selected. Shopify calculates the final discount in cart.'
-            : 'Add more items to qualify for one of your configured offers.';
-          progressText.textContent = selectedItems.length + ' item' + (selectedItems.length === 1 ? '' : 's') + ' selected. ' + tierMessage;
-          bundleStatus.textContent = selectedItems.length + ' item' + (selectedItems.length === 1 ? '' : 's') + ' selected.';
-        } else {
-          progressText.textContent = 'Select products and quantities to add them to your bundle.';
-          bundleStatus.textContent = 'Select the products and quantities you want in your bundle.';
-        }
-
-        submitButton.disabled = selectedItems.length === 0;
-        submitButton.textContent = getCheckoutButtonLabel();
-        renderOfferOptions();
-      };
-
-      const commitSelection = (item) => {
-        if (selectedItems.length >= getBundleLimit()) {
-          progressText.textContent = 'This bundle already has the maximum of ' + getBundleLimit() + ' items.';
-          return;
-        }
-
-        if (onePerVariant && selectedItems.some((selectedItem) => selectedItem.variantId === item.variantId)) {
-          progressText.textContent = 'Only one of each variant can be added to this bundle.';
-          return;
-        }
-
-        selectedItems.push({
-          ...item,
-          lineId: createLineId()
-        });
-
-        syncCards();
-        renderSelected();
-        updateSummary();
-      };
-
-      const resetSelection = () => {
-        selectedItems.splice(0, selectedItems.length);
-        syncCards();
-        renderSelected();
-        updateSummary();
-      };
-
-      const openModal = (card) => {
-        const variantsJson = card.querySelector('[data-product-variants]');
-        const optionsJson = card.querySelector('[data-product-options]');
-        if (!variantsJson) return;
-
-        modalContext = card;
-        pendingVariant = null;
-        modalTitle.textContent = card.dataset.productTitle || '';
-        if (modalImage) {
-          modalImage.src = card.dataset.productImage || '';
-          modalImage.alt = card.dataset.productTitle || '';
-        }
-
-        try {
-          modalVariants = JSON.parse(variantsJson.textContent);
-        } catch (error) {
-          modalVariants = [];
-        }
-
-        try {
-          modalOptionNames = JSON.parse(optionsJson.textContent);
-        } catch (error) {
-          modalOptionNames = [];
-        }
-
-        const firstAvailable = modalVariants.find((variant) => variant.available) || modalVariants[0] || null;
-        modalSelection = {};
-
-        if (firstAvailable) {
-          modalSelection.option1 = firstAvailable.option1 || '';
-          modalSelection.option2 = firstAvailable.option2 || '';
-          modalSelection.option3 = firstAvailable.option3 || '';
-        }
-
-        renderModalOptionGroups();
-        modal.hidden = false;
-        document.body.classList.add('overflow-hidden');
-      };
-
-      const closeModal = () => {
-        modal.hidden = true;
-        modalOptions.innerHTML = '';
-        modalSubmit.disabled = true;
-        if (modalImage) {
-          modalImage.removeAttribute('src');
-          modalImage.alt = '';
-        }
-        if (modalPrice) {
-          modalPrice.textContent = '';
-        }
-        modalContext = null;
-        pendingVariant = null;
-        modalVariants = [];
-        modalOptionNames = [];
-        modalSelection = {};
-        document.body.classList.remove('overflow-hidden');
-      };
-
-      const loadMoreProducts = async () => {
-        if (!grid || !loadMoreButton) return;
-
-        const nextUrl = loadMoreButton.dataset.nextUrl;
-        if (!nextUrl) return;
-
-        loadMoreButton.disabled = true;
-        loadMoreButton.textContent = 'Loading...';
-
-        try {
-          const response = await fetch(nextUrl, {
-            headers: {
-              Accept: 'text/html'
-            }
-          });
-
-          if (!response.ok) {
-            throw new Error('Unable to load more products');
-          }
-
-          const html = await response.text();
-          const parsedDocument = new DOMParser().parseFromString(html, 'text/html');
-          const nextSection = parsedDocument.querySelector('.bundle-collection--{{ block.id }}');
-          const nextGrid = nextSection?.querySelector('.bundle-collection__grid');
-
-          if (!nextGrid) {
-            throw new Error('Missing bundle grid');
-          }
-
-          const newCards = Array.from(nextGrid.querySelectorAll('[data-bundle-card]'));
-          newCards.forEach((card) => {
-            grid.appendChild(card);
-            cards.push(card);
-            bindCardInteractions(card);
-          });
-
-          const nextLoadMore = nextSection.querySelector('[data-load-more]');
-          setLoadMoreState(nextLoadMore?.dataset.nextUrl || '');
-          updatePaginationText();
-          syncCards();
-        } catch (error) {
-          loadMoreButton.disabled = false;
-          loadMoreButton.textContent = 'Try again';
-        }
-      };
-
-      const applyTemplateTokens = (template, bundlePrice, regularTotal) => {
-        const variantIds = selectedItems.map((item) => item.variantId).join(',');
-        const replacements = {
-          '{{shop_url}}': shopUrl,
-          '{{shop_root}}': shopRoot,
-          '{{checkout_url}}': shopRoot + 'checkout',
-          '{{cart_url}}': shopRoot + 'cart',
-          '{{bundle_total}}': String(bundlePrice / 100),
-          '{{regular_total}}': String(regularTotal / 100),
-          '{{discount_percent}}': '0',
-          '{{bundle_size}}': String(selectedItems.length),
-          '{{variant_ids}}': variantIds
-        };
-
-        return Object.keys(replacements).reduce((content, token) => {
-          return content.split(token).join(replacements[token]);
-        }, template || '');
-      };
-
-      const runCustomCheckout = (bundlePrice, regularTotal) => {
-        if (!customCheckoutScriptTemplate) {
-          window.location.href = shopRoot + 'checkout';
-          return;
-        }
-
-        const processedTemplate = applyTemplateTokens(customCheckoutScriptTemplate, bundlePrice, regularTotal).trim();
-        if (!processedTemplate) {
-          window.location.href = shopRoot + 'checkout';
-          return;
-        }
-
-        const looksLikeUrl = /^(https?:\/\/|\/)/i.test(processedTemplate) && !/[\n;{}]/.test(processedTemplate);
-        if (looksLikeUrl) {
-          window.location.href = processedTemplate;
-          return;
-        }
-
-        const payload = {
-          shopUrl,
-          shopRoot,
-          checkoutUrl: shopRoot + 'checkout',
-          cartUrl: shopRoot + 'cart',
-          bundleTotal: bundlePrice / 100,
-          regularTotal: regularTotal / 100,
-          discountPercent: 0,
-          bundleSize: selectedItems.length,
-          variantIds: selectedItems.map((item) => item.variantId),
-          selectedItems: selectedItems.map((item) => ({ ...item })),
-          currentOffer: null
-        };
-
-        window.discountBundleCheckout = payload;
-
-        const executeCheckout = new Function(
-          'payload',
-          'window',
-          'document',
-          processedTemplate
-        );
-
-        executeCheckout(payload, window, document);
-      };
-
-      cards.forEach(bindCardInteractions);
-
-      if (loadMoreButton) {
-        loadMoreButton.addEventListener('click', loadMoreProducts);
-        setLoadMoreState(loadMoreButton.dataset.nextUrl || '');
-        updatePaginationText();
-      }
-
-      modalOptions.addEventListener('click', (event) => {
-        const option = event.target.closest('[data-option-index]');
-        if (!option || option.disabled) return;
-
-        const optionIndex = option.dataset.optionIndex;
-        const optionValue = option.dataset.optionValue;
-        modalSelection['option' + optionIndex] = optionValue;
-        syncModalSelectionUi();
-      });
-
-      modalSubmit.addEventListener('click', () => {
-        if (!modalContext || !pendingVariant) return;
-
-        commitSelection({
-          productId: Number(modalContext.dataset.productId),
-          productTitle: modalContext.dataset.productTitle,
-          image: modalContext.dataset.productImage,
-          variantId: pendingVariant.id,
-          variantTitle: getVariantDisplayTitle(pendingVariant),
-          price: Number(pendingVariant.price || 0)
-        });
-
-        closeModal();
-      });
-
-      modalCloseButtons.forEach((button) => {
-        button.addEventListener('click', closeModal);
-      });
-
-      selectedList.addEventListener('click', (event) => {
-        const removeButton = event.target.closest('[data-remove-line]');
-        if (!removeButton) return;
-
-        const removeIndex = selectedItems.findIndex((item) => item.lineId === removeButton.dataset.removeLine);
-        if (removeIndex === -1) return;
-
-        selectedItems.splice(removeIndex, 1);
-        syncCards();
-        renderSelected();
-        updateSummary();
-      });
-
-      submitButton.addEventListener('click', async () => {
-        if (!selectedItems.length) return;
-
-        submitButton.disabled = true;
-        submitButton.textContent = 'Loading...';
-
-        try {
-          const response = await fetch(shopRoot + 'cart/add.js', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Accept: 'application/json'
-            },
-            body: JSON.stringify({
-              items: Array.from(selectedItems.reduce((lines, item) => {
-                const line = lines.get(item.variantId) || { ...item, quantity: 0 };
-                line.quantity += 1;
-                lines.set(item.variantId, line);
-                return lines;
-              }, new Map()).values()).map((item) => ({
-                id: item.variantId,
-                quantity: item.quantity,
-                properties: {
-                  _bundle_source: 'discount-bundle-app'
-                }
-              }))
-            })
-          });
-
-          if (!response.ok) {
-            throw new Error('Bundle add failed');
-          }
-
-          const regularTotal = selectedItems.reduce((sum, item) => sum + item.price, 0);
-          const bundlePrice = regularTotal;
-
-          resetSelection();
-
-          if (checkoutMode === 'custom') {
-            runCustomCheckout(bundlePrice, regularTotal);
-            return;
-          }
-
-          window.location.href = shopRoot + 'checkout';
-        } catch (error) {
-          submitButton.disabled = false;
-          submitButton.textContent = getCheckoutButtonLabel();
-          progressText.textContent = 'Something went wrong while preparing the bundle. Please try again.';
-        }
-      });
-
-      parseBundleTiers();
-      renderSelected();
-      syncCards();
-      updateSummary();
-    })();
-  </script>
+.bundle-collection__cta {min-height:40px} .bundle-collection__modal-product {grid-template-columns:1fr} .bundle-collection__modal-media {max-width:180px}}</style>
+
+<style>
+.bundle-collection__total-row[hidden] {
+display: none !important;
+}
+
+.bundle-collection__card-badge--sold-out {
+background: #b42318;
+}
+
+.bundle-collection__card:has(.bundle-collection__card-badge--sold-out) {
+opacity: 0.72;
+}
+
+.bundle-collection__card-toggle[aria-disabled="true"] {
+cursor: not-allowed;
+opacity: 0.55;
+}
+
+@media (min-width: 1025px) {
+.bundle-collection__summary {
+height: calc(100dvh - 48px);
+overflow: hidden;
+}
+
+.bundle-collection__summary-card {
+height: 100%;
+max-height: calc(100dvh - 48px);
+overflow-y: auto;
+overscroll-behavior: contain;
+}
+
+.bundle-collection__cta {
+position: sticky;
+bottom: 0;
+z-index: 1;
+box-shadow: 0 -10px 18px rgba(255, 255, 255, 0.94);
+}
+}
+</style>
+
+<script>
+(() => {
+const section = document.querySelector('.bundle-collection--{{ block.id }}');
+if (!section) return;
+
+const checkoutMode = section.dataset.checkoutMode || 'shopify';
+const shopifyCheckoutLabel = section.dataset.shopifyCheckoutLabel || 'Checkout securely';
+const customCheckoutScriptTemplate = section.dataset.customCheckoutScript || '';
+const customCheckoutLabel = section.dataset.checkoutLabel || 'Custom checkout';
+const onePerVariant = section.dataset.onePerVariant === 'true';
+const bundleTiersValue = {{ bundle_tiers | strip_newlines | json }};
+const shopRoot = section.dataset.shopRoot || '/';
+const shopUrl = section.dataset.shopUrl || window.location.origin;
+const currencyCode = section.dataset.currencyCode || 'USD';
+
+let cards = Array.from(section.querySelectorAll('[data-bundle-card]'));
+const grid = section.querySelector('.bundle-collection__grid');
+const offerOptions = section.querySelector('[data-offer-options]');
+const paginationCopy = section.querySelector('.bundle-collection__pagination-copy');
+const loadMoreButton = section.querySelector('[data-load-more]');
+const regularTotalEl = section.querySelector('[data-regular-total]');
+const offerSummary = section.querySelector('[data-offer-summary]');
+const offerLabelEl = section.querySelector('[data-offer-label]');
+const offerValueEl = section.querySelector('[data-offer-value]');
+const savingsSummary = section.querySelector('[data-savings-summary]');
+const discountTotalEl = section.querySelector('[data-discount-total]');
+const payableSummary = section.querySelector('[data-payable-summary]');
+const payableTotalEl = section.querySelector('[data-payable-total]');
+const submitButton = section.querySelector('[data-bundle-submit]');
+const selectedList = section.querySelector('[data-selected-list]');
+const progressText = section.querySelector('[data-progress-text]');
+const bundleStatus = section.querySelector('[data-bundle-status]');
+const modal = section.querySelector('[data-variant-modal]');
+const modalTitle = section.querySelector('[data-modal-product-title]');
+const modalImage = section.querySelector('[data-modal-product-image]');
+const modalPrice = section.querySelector('[data-modal-product-price]');
+const modalOptions = section.querySelector('[data-modal-options]');
+const modalSubmit = section.querySelector('[data-modal-submit]');
+const modalCloseButtons = Array.from(section.querySelectorAll('[data-modal-close]'));
+
+const selectedItems = [];
+let modalContext = null;
+let modalVariants = [];
+let modalOptionNames = [];
+let modalSelection = {};
+let pendingVariant = null;
+let bundleTiers = [];
+const totalProducts = Number(section.dataset.totalProducts || cards.length);
+
+const formatMoney = (amountInCents) => {
+return new Intl.NumberFormat(undefined, {
+style: 'currency',
+currency: currencyCode
+}).format((Number(amountInCents) || 0) / 100);
+};
+
+const createLineId = () => Math.random().toString(36).slice(2, 10);
+const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({
+'&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+})[character]);
+const getCheckoutButtonLabel = () => {
+return selectedItems.length
+? (checkoutMode === 'custom' ? customCheckoutLabel : shopifyCheckoutLabel)
+: 'Select products';
+};
+
+const parseBundleTiers = () => {
+try {
+const tiers = JSON.parse(bundleTiersValue);
+bundleTiers = (Array.isArray(tiers) ? tiers : [])
+.filter((tier) => tier && tier.enabled !== false)
+.map((tier) => ({
+quantity: Number(tier.quantity),
+discountType: tier.discountType === 'fixed_price' ? 'fixed_price' : 'percentage',
+value: Number(tier.value)
+}))
+.filter((tier) => Number.isInteger(tier.quantity) && tier.quantity >= 2 && tier.value > 0)
+.sort((left, right) => left.quantity - right.quantity);
+} catch (error) {
+bundleTiers = [];
+}
+};
+
+const getTierLabel = (tier) => tier.discountType === 'fixed_price'
+? 'Buy ' + tier.quantity + ' for ' + formatMoney(tier.value * 100)
+: 'Buy ' + tier.quantity + ' & save ' + tier.value + '%';
+
+const getQualifiedTier = () => bundleTiers
+.filter((tier) => selectedItems.length >= tier.quantity)
+.at(-1) || null;
+
+const getBundleLimit = () => bundleTiers.length
+? Math.max(...bundleTiers.map((tier) => tier.quantity))
+: Infinity;
+
+const getDiscountSummary = (subtotal, tier) => {
+if (!tier) return { discount: 0, payable: subtotal };
+
+const discount = tier.discountType === 'fixed_price'
+? Math.max(0, subtotal - (tier.value * 100))
+: Math.round(subtotal * tier.value / 100);
+
+return { discount, payable: Math.max(0, subtotal - discount) };
+};
+
+const renderOfferOptions = () => {
+if (!offerOptions) return;
+offerOptions.innerHTML = bundleTiers.map((tier) => {
+const isQualified = selectedItems.length >= tier.quantity;
+return '<div class="bundle-collection__offer-option' + (isQualified ? ' is-active' : '') + '"><span>'
++ escapeHtml(getTierLabel(tier)) + '</span></div>';
+}).join('');
+};
+
+const getProductSelectedCount = (productId) => {
+return selectedItems.filter((item) => item.productId === productId).length;
+};
+
+const updatePaginationText = () => {
+if (!paginationCopy) return;
+paginationCopy.textContent = 'Showing 1-' + cards.length + ' of ' + totalProducts + ' products.';
+};
+
+const setLoadMoreState = (nextUrl) => {
+if (!loadMoreButton) return;
+
+loadMoreButton.dataset.nextUrl = nextUrl || '';
+loadMoreButton.hidden = !nextUrl;
+loadMoreButton.disabled = false;
+loadMoreButton.textContent = 'Load more products';
+};
+
+const getVariantDisplayTitle = (variant) => {
+const parts = [variant.option1, variant.option2, variant.option3].filter(Boolean);
+if (parts.length) return parts.join(' / ');
+return variant.title || 'Default';
+};
+
+const matchesSelection = (variant, selection) => {
+return [1, 2, 3].every((index) => {
+const key = 'option' + index;
+if (!selection[key]) return true;
+return variant[key] === selection[key];
+});
+};
+
+const findVariantFromSelection = () => {
+return modalVariants.find((variant) => variant.available && matchesSelection(variant, modalSelection))
+|| modalVariants.find((variant) => matchesSelection(variant, modalSelection))
+|| null;
+};
+
+const getAvailableValuesForIndex = (optionIndex) => {
+const key = 'option' + optionIndex;
+const values = [];
+
+modalVariants.forEach((variant) => {
+const partialSelection = { ...modalSelection };
+delete partialSelection[key];
+
+if (matchesSelection(variant, partialSelection) && !values.includes(variant[key])) {
+values.push(variant[key]);
+}
+});
+
+return values.filter(Boolean);
+};
+
+const syncModalSelectionUi = () => {
+Array.from(modalOptions.querySelectorAll('[data-option-index]')).forEach((button) => {
+const optionIndex = button.dataset.optionIndex;
+const optionValue = button.dataset.optionValue;
+const key = 'option' + optionIndex;
+const availableValues = getAvailableValuesForIndex(Number(optionIndex));
+const isAvailable = availableValues.includes(optionValue);
+const isSelected = modalSelection[key] === optionValue;
+
+button.classList.toggle('is-selected', isSelected);
+button.disabled = !isAvailable;
+});
+
+pendingVariant = findVariantFromSelection();
+modalSubmit.disabled = !pendingVariant || !pendingVariant.available;
+modalPrice.textContent = pendingVariant ? formatMoney(pendingVariant.price) : '';
+};
+
+const renderModalOptionGroups = () => {
+modalOptions.innerHTML = '';
+
+modalOptionNames.forEach((name, index) => {
+const optionIndex = index + 1;
+const values = [];
+
+modalVariants.forEach((variant) => {
+const value = variant['option' + optionIndex];
+if (value && !values.includes(value)) values.push(value);
+});
+
+if (!values.length) return;
+
+const groupMarkup = `
+<div class="bundle-collection__option-group">
+<p class="bundle-collection__option-title">${escapeHtml(name)}</p>
+<div class="bundle-collection__option-values">
+${values.map((value) => `
+<button
+type="button"
+class="bundle-collection__variant-chip"
+data-option-index="${optionIndex}"
+data-option-value="${String(value).replace(/"/g, '&quot;')}"
+>
+${escapeHtml(value)}
+</button>
+`).join('')}
+</div>
+</div>
+`;
+
+modalOptions.insertAdjacentHTML('beforeend', groupMarkup);
+});
+
+syncModalSelectionUi();
+};
+
+const bindCardInteractions = (card) => {
+const toggle = card.querySelector('[data-card-toggle]');
+if (!toggle || toggle.dataset.bound === 'true') return;
+
+toggle.dataset.bound = 'true';
+toggle.addEventListener('click', () => {
+if (card.dataset.productAvailable !== 'true') {
+progressText.textContent = 'This product is currently out of stock.';
+return;
+}
+
+if (selectedItems.length >= getBundleLimit()) {
+progressText.textContent = 'This bundle already has the maximum of ' + getBundleLimit() + ' items.';
+return;
+}
+
+if (card.dataset.hasMultipleVariants === 'true') {
+openModal(card);
+return;
+}
+
+commitSelection({
+productId: Number(card.dataset.productId),
+productTitle: card.dataset.productTitle,
+image: card.dataset.productImage,
+variantId: Number(card.dataset.defaultVariantId),
+variantTitle: card.dataset.defaultVariantTitle,
+price: Number(card.dataset.defaultPrice || 0)
+});
+});
+};
+
+const syncCards = () => {
+cards.forEach((card) => {
+const productId = Number(card.dataset.productId);
+const toggle = card.querySelector('[data-card-toggle]');
+const hasVariants = card.dataset.hasMultipleVariants === 'true';
+const isAvailable = card.dataset.productAvailable === 'true';
+const selectedCount = getProductSelectedCount(productId);
+
+if (!toggle) return;
+
+card.classList.toggle('is-selected', selectedCount > 0);
+toggle.setAttribute('aria-pressed', selectedCount > 0 ? 'true' : 'false');
+if (!isAvailable) {
+toggle.textContent = 'Out of stock';
+toggle.disabled = true;
+toggle.setAttribute('aria-disabled', 'true');
+return;
+}
+if (selectedItems.length >= getBundleLimit()) {
+toggle.textContent = 'Bundle full';
+toggle.disabled = true;
+toggle.setAttribute('aria-disabled', 'true');
+return;
+}
+if (onePerVariant && !hasVariants && selectedCount > 0) {
+toggle.textContent = 'Already added';
+toggle.disabled = true;
+return;
+}
+toggle.disabled = false;
+if (hasVariants) {
+toggle.textContent = selectedCount > 0 ? '+ Add one more' : 'Choose options';
+} else {
+toggle.textContent = selectedCount > 0 ? '+ Add one more' : 'Add to bundle';
+}
+});
+};
+
+const renderSelected = () => {
+if (!selectedItems.length) {
+selectedList.innerHTML = '<div class="bundle-collection__selected-empty">Your selected products will appear here.</div>';
+return;
+}
+
+const itemsMarkup = selectedItems.map((item) => `
+<div class="bundle-collection__selected-item">
+<div class="bundle-collection__selected-main">
+${item.image ? `<img class="bundle-collection__selected-thumb" src="${escapeHtml(item.image)}" alt="${escapeHtml(item.productTitle)}">` : '<div class="bundle-collection__selected-thumb"></div>'}
+<div class="bundle-collection__selected-copy">
+<strong>${escapeHtml(item.productTitle.slice(0, 24))}..</strong>
+<p>${escapeHtml(item.variantTitle)}</p>
+</div>
+</div>
+<div class="bundle-collection__selected-side">
+<strong>${formatMoney(item.price)}</strong>
+<button type="button" class="bundle-collection__selected-remove" data-remove-line="${item.lineId}">Remove</button>
+</div>
+</div>
+`).join('');
+
+selectedList.innerHTML = `
+<div class="bundle-collection__selected-track">
+${itemsMarkup}
+</div>
+`;
+};
+
+const updateSummary = () => {
+const regularTotal = selectedItems.reduce((sum, item) => sum + item.price, 0);
+const qualifiedTier = getQualifiedTier();
+const { discount, payable } = getDiscountSummary(regularTotal, qualifiedTier);
+
+regularTotalEl.textContent = formatMoney(regularTotal);
+offerSummary.hidden = !qualifiedTier;
+savingsSummary.hidden = !qualifiedTier;
+payableSummary.hidden = !qualifiedTier;
+
+if (qualifiedTier) {
+offerLabelEl.textContent = 'Bundle offer';
+offerValueEl.textContent = qualifiedTier.discountType === 'fixed_price'
+? formatMoney(qualifiedTier.value * 100)
+: qualifiedTier.value + '% off';
+discountTotalEl.textContent = '-' + formatMoney(discount);
+payableTotalEl.textContent = formatMoney(payable);
+}
+
+if (selectedItems.length) {
+const tierMessage = qualifiedTier
+? getTierLabel(qualifiedTier) + ' applied. You save ' + formatMoney(discount) + ' and pay ' + formatMoney(payable) + '.'
+: 'Add more items to qualify for one of your configured offers.';
+progressText.textContent = selectedItems.length + ' item' + (selectedItems.length === 1 ? '' : 's') + ' selected. ' + tierMessage;
+bundleStatus.textContent = selectedItems.length + ' item' + (selectedItems.length === 1 ? '' : 's') + ' selected.';
+} else {
+progressText.textContent = 'Select products and quantities to add them to your bundle.';
+bundleStatus.textContent = 'Select the products and quantities you want in your bundle.';
+}
+
+submitButton.disabled = !qualifiedTier;
+submitButton.textContent = getCheckoutButtonLabel();
+renderOfferOptions();
+};
+
+const commitSelection = (item) => {
+if (selectedItems.length >= getBundleLimit()) {
+progressText.textContent = 'This bundle already has the maximum of ' + getBundleLimit() + ' items.';
+return;
+}
+
+if (onePerVariant && selectedItems.some((selectedItem) => selectedItem.variantId === item.variantId)) {
+progressText.textContent = 'Only one of each variant can be added to this bundle.';
+return;
+}
+
+selectedItems.push({
+...item,
+lineId: createLineId()
+});
+
+syncCards();
+renderSelected();
+updateSummary();
+};
+
+const resetSelection = () => {
+selectedItems.splice(0, selectedItems.length);
+syncCards();
+renderSelected();
+updateSummary();
+};
+
+const openModal = (card) => {
+const variantsJson = card.querySelector('[data-product-variants]');
+const optionsJson = card.querySelector('[data-product-options]');
+if (!variantsJson) return;
+
+modalContext = card;
+pendingVariant = null;
+modalTitle.textContent = card.dataset.productTitle || '';
+if (modalImage) {
+modalImage.src = card.dataset.productImage || '';
+modalImage.alt = card.dataset.productTitle || '';
+}
+
+try {
+modalVariants = JSON.parse(variantsJson.textContent);
+} catch (error) {
+modalVariants = [];
+}
+
+try {
+modalOptionNames = JSON.parse(optionsJson.textContent);
+} catch (error) {
+modalOptionNames = [];
+}
+
+const firstAvailable = modalVariants.find((variant) => variant.available) || modalVariants[0] || null;
+modalSelection = {};
+
+if (firstAvailable) {
+modalSelection.option1 = firstAvailable.option1 || '';
+modalSelection.option2 = firstAvailable.option2 || '';
+modalSelection.option3 = firstAvailable.option3 || '';
+}
+
+renderModalOptionGroups();
+modal.hidden = false;
+document.body.classList.add('overflow-hidden');
+};
+
+const closeModal = () => {
+modal.hidden = true;
+modalOptions.innerHTML = '';
+modalSubmit.disabled = true;
+if (modalImage) {
+modalImage.removeAttribute('src');
+modalImage.alt = '';
+}
+if (modalPrice) {
+modalPrice.textContent = '';
+}
+modalContext = null;
+pendingVariant = null;
+modalVariants = [];
+modalOptionNames = [];
+modalSelection = {};
+document.body.classList.remove('overflow-hidden');
+};
+
+const loadMoreProducts = async () => {
+if (!grid || !loadMoreButton) return;
+
+const nextUrl = loadMoreButton.dataset.nextUrl;
+if (!nextUrl) return;
+
+loadMoreButton.disabled = true;
+loadMoreButton.textContent = 'Loading...';
+
+try {
+const response = await fetch(nextUrl, {
+headers: {
+Accept: 'text/html'
+}
+});
+
+if (!response.ok) {
+throw new Error('Unable to load more products');
+}
+
+const html = await response.text();
+const parsedDocument = new DOMParser().parseFromString(html, 'text/html');
+const nextSection = parsedDocument.querySelector('.bundle-collection--{{ block.id }}');
+const nextGrid = nextSection?.querySelector('.bundle-collection__grid');
+
+if (!nextGrid) {
+throw new Error('Missing bundle grid');
+}
+
+const newCards = Array.from(nextGrid.querySelectorAll('[data-bundle-card]'));
+newCards.forEach((card) => {
+grid.appendChild(card);
+cards.push(card);
+bindCardInteractions(card);
+});
+
+const nextLoadMore = nextSection.querySelector('[data-load-more]');
+setLoadMoreState(nextLoadMore?.dataset.nextUrl || '');
+updatePaginationText();
+syncCards();
+} catch (error) {
+loadMoreButton.disabled = false;
+loadMoreButton.textContent = 'Try again';
+}
+};
+
+const applyTemplateTokens = (template, bundlePrice, regularTotal) => {
+const variantIds = selectedItems.map((item) => item.variantId).join(',');
+const replacements = {
+'{{shop_url}}': shopUrl,
+'{{shop_root}}': shopRoot,
+'{{checkout_url}}': shopRoot + 'checkout',
+'{{cart_url}}': shopRoot + 'cart',
+'{{bundle_total}}': String(bundlePrice / 100),
+'{{regular_total}}': String(regularTotal / 100),
+'{{discount_percent}}': '0',
+'{{bundle_size}}': String(selectedItems.length),
+'{{variant_ids}}': variantIds
+};
+
+return Object.keys(replacements).reduce((content, token) => {
+return content.split(token).join(replacements[token]);
+}, template || '');
+};
+
+const runCustomCheckout = (bundlePrice, regularTotal) => {
+if (!customCheckoutScriptTemplate) {
+window.location.href = shopRoot + 'checkout';
+return;
+}
+
+const processedTemplate = applyTemplateTokens(customCheckoutScriptTemplate, bundlePrice, regularTotal).trim();
+if (!processedTemplate) {
+window.location.href = shopRoot + 'checkout';
+return;
+}
+
+const looksLikeUrl = /^(https?:\/\/|\/)/i.test(processedTemplate) && !/[\n;{}]/.test(processedTemplate);
+if (looksLikeUrl) {
+window.location.href = processedTemplate;
+return;
+}
+
+const payload = {
+shopUrl,
+shopRoot,
+checkoutUrl: shopRoot + 'checkout',
+cartUrl: shopRoot + 'cart',
+bundleTotal: bundlePrice / 100,
+regularTotal: regularTotal / 100,
+discountPercent: 0,
+bundleSize: selectedItems.length,
+variantIds: selectedItems.map((item) => item.variantId),
+selectedItems: selectedItems.map((item) => ({ ...item })),
+currentOffer: null
+};
+
+window.discountBundleCheckout = payload;
+
+const executeCheckout = new Function(
+'payload',
+'window',
+'document',
+processedTemplate
+);
+
+executeCheckout(payload, window, document);
+};
+
+cards.forEach(bindCardInteractions);
+
+if (loadMoreButton) {
+loadMoreButton.addEventListener('click', loadMoreProducts);
+setLoadMoreState(loadMoreButton.dataset.nextUrl || '');
+updatePaginationText();
+}
+
+modalOptions.addEventListener('click', (event) => {
+const option = event.target.closest('[data-option-index]');
+if (!option || option.disabled) return;
+
+const optionIndex = option.dataset.optionIndex;
+const optionValue = option.dataset.optionValue;
+modalSelection['option' + optionIndex] = optionValue;
+syncModalSelectionUi();
+});
+
+modalSubmit.addEventListener('click', () => {
+if (!modalContext || !pendingVariant) return;
+
+commitSelection({
+productId: Number(modalContext.dataset.productId),
+productTitle: modalContext.dataset.productTitle,
+image: modalContext.dataset.productImage,
+variantId: pendingVariant.id,
+variantTitle: getVariantDisplayTitle(pendingVariant),
+price: Number(pendingVariant.price || 0)
+});
+
+closeModal();
+});
+
+modalCloseButtons.forEach((button) => {
+button.addEventListener('click', closeModal);
+});
+
+selectedList.addEventListener('click', (event) => {
+const removeButton = event.target.closest('[data-remove-line]');
+if (!removeButton) return;
+
+const removeIndex = selectedItems.findIndex((item) => item.lineId === removeButton.dataset.removeLine);
+if (removeIndex === -1) return;
+
+selectedItems.splice(removeIndex, 1);
+syncCards();
+renderSelected();
+updateSummary();
+});
+
+submitButton.addEventListener('click', async () => {
+if (!selectedItems.length) return;
+
+submitButton.disabled = true;
+submitButton.textContent = 'Loading...';
+
+try {
+const response = await fetch(shopRoot + 'cart/add.js', {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json',
+Accept: 'application/json'
+},
+body: JSON.stringify({
+items: Array.from(selectedItems.reduce((lines, item) => {
+const line = lines.get(item.variantId) || { ...item, quantity: 0 };
+line.quantity += 1;
+lines.set(item.variantId, line);
+return lines;
+}, new Map()).values()).map((item) => ({
+id: item.variantId,
+quantity: item.quantity,
+properties: {
+_bundle_source: 'discount-bundle-app'
+}
+}))
+})
+});
+
+if (!response.ok) {
+throw new Error('Bundle add failed');
+}
+
+const regularTotal = selectedItems.reduce((sum, item) => sum + item.price, 0);
+const bundlePrice = regularTotal;
+
+resetSelection();
+
+if (checkoutMode === 'custom') {
+runCustomCheckout(bundlePrice, regularTotal);
+return;
+}
+
+window.location.href = shopRoot + 'checkout';
+} catch (error) {
+submitButton.disabled = false;
+submitButton.textContent = getCheckoutButtonLabel();
+progressText.textContent = 'Something went wrong while preparing the bundle. Please try again.';
+}
+});
+
+parseBundleTiers();
+renderSelected();
+syncCards();
+updateSummary();
+})();
+</script>
 </section>
 
 {% schema %}
 {
-  "name": "Bundle template 1",
-  "target": "section",
-  "settings": [
-    {
-      "type": "collection",
-      "id": "bundle_collection",
-      "label": "Bundle collection"
-    },
-    {
-      "type": "text",
-      "id": "heading",
-      "label": "Heading",
-      "default": "Build your quantity bundle"
-    },
-    {
-      "type": "text",
-      "id": "sidebar_heading",
-      "label": "Sidebar heading",
-      "default": "Your bundle"
-    },
-    {
-      "type": "checkbox",
-      "id": "one_per_variant",
-      "label": "Allow only one of each variant",
-      "default": false,
-      "info": "When disabled, shoppers can add any quantity of the same variant. Bundle quantities and discounts are configured in the Discount Bundle app."
-    },
-    { "type": "header", "content": "Bundle offers" },
-    { "type": "paragraph", "content": "Set these to the same quantities and discounts created in Discount Bundle. Enable the offers you want shoppers to see." },
-    { "type": "checkbox", "id": "bundle_offer_1_enabled", "label": "Enable offer 1", "default": true },
-    { "type": "range", "id": "bundle_offer_1_quantity", "label": "Offer 1: number of items", "min": 2, "max": 50, "step": 1, "default": 2 },
-    { "type": "select", "id": "bundle_offer_1_type", "label": "Offer 1: discount type", "default": "percentage", "options": [{ "value": "percentage", "label": "Percentage off" }, { "value": "fixed_price", "label": "Fixed total bundle price" }] },
-    { "type": "number", "id": "bundle_offer_1_value", "label": "Offer 1: percentage or fixed price", "default": 10 },
-    { "type": "checkbox", "id": "bundle_offer_2_enabled", "label": "Enable offer 2", "default": true },
-    { "type": "range", "id": "bundle_offer_2_quantity", "label": "Offer 2: number of items", "min": 2, "max": 50, "step": 1, "default": 3 },
-    { "type": "select", "id": "bundle_offer_2_type", "label": "Offer 2: discount type", "default": "percentage", "options": [{ "value": "percentage", "label": "Percentage off" }, { "value": "fixed_price", "label": "Fixed total bundle price" }] },
-    { "type": "number", "id": "bundle_offer_2_value", "label": "Offer 2: percentage or fixed price", "default": 15 },
-    { "type": "checkbox", "id": "bundle_offer_3_enabled", "label": "Enable offer 3", "default": false },
-    { "type": "range", "id": "bundle_offer_3_quantity", "label": "Offer 3: number of items", "min": 2, "max": 50, "step": 1, "default": 4 },
-    { "type": "select", "id": "bundle_offer_3_type", "label": "Offer 3: discount type", "default": "percentage", "options": [{ "value": "percentage", "label": "Percentage off" }, { "value": "fixed_price", "label": "Fixed total bundle price" }] },
-    { "type": "number", "id": "bundle_offer_3_value", "label": "Offer 3: percentage or fixed price", "default": 20 },
-    { "type": "checkbox", "id": "bundle_offer_4_enabled", "label": "Enable offer 4", "default": false },
-    { "type": "range", "id": "bundle_offer_4_quantity", "label": "Offer 4: number of items", "min": 2, "max": 50, "step": 1, "default": 5 },
-    { "type": "select", "id": "bundle_offer_4_type", "label": "Offer 4: discount type", "default": "percentage", "options": [{ "value": "percentage", "label": "Percentage off" }, { "value": "fixed_price", "label": "Fixed total bundle price" }] },
-    { "type": "number", "id": "bundle_offer_4_value", "label": "Offer 4: percentage or fixed price", "default": 25 },
-    {
-      "type": "select",
-      "id": "checkout_mode",
-      "label": "Checkout button mode",
-      "default": "shopify",
-      "options": [
-        { "value": "shopify", "label": "Shopify checkout" },
-        { "value": "custom", "label": "Custom checkout URL" }
-      ]
-    },
-    {
-      "type": "text",
-      "id": "shopify_checkout_label",
-      "label": "Shopify checkout button label",
-      "default": "Checkout securely"
-    },
-    {
-      "type": "text",
-      "id": "custom_checkout_label",
-      "label": "Custom checkout button label",
-      "default": "Continue"
-    },
-    {
-      "type": "textarea",
-      "id": "custom_checkout_url",
-      "label": "GoKwik / Shiprocket checkout code or URL",
-      "info": "Pro only. Paste a provider-approved code snippet or URL. It runs only after items are added to Shopify cart. Supported placeholders: {{shop_url}}, {{shop_root}}, {{checkout_url}}, {{cart_url}}, {{bundle_total}}, {{regular_total}}, {{bundle_size}}, {{variant_ids}}. Never paste API keys."
-    },
-    {
-      "type": "color",
-      "id": "background_color",
-      "label": "Background color",
-      "default": "#f7efe4"
-    },
-    {
-      "type": "color",
-      "id": "card_color",
-      "label": "Card color",
-      "default": "#ffffff"
-    },
-    {
-      "type": "color",
-      "id": "text_color",
-      "label": "Text color",
-      "default": "#18181b"
-    },
-    {
-      "type": "color",
-      "id": "muted_text_color",
-      "label": "Muted text color",
-      "default": "#6b7280"
-    },
-    {
-      "type": "color",
-      "id": "accent_color",
-      "label": "Accent color",
-      "default": "#0f766e"
-    },
-    {
-      "type": "color",
-      "id": "accent_soft_color",
-      "label": "Soft accent color",
-      "default": "#ddf4ef"
-    },
-    {
-      "type": "color",
-      "id": "border_color",
-      "label": "Border color",
-      "default": "#e7ddd0"
-    },
-    {
-      "type": "image_picker",
-      "id": "bundle_image",
-      "label": "Header image"
-    },
-    {
-      "type": "text",
-      "id": "Product_label",
-      "label": "Product label",
-      "default": "Bundle Offer"
-    }
-  ]
+"name": "Bundle template 1",
+"target": "section",
+"settings": [
+{
+"type": "collection",
+"id": "bundle_collection",
+"label": "Bundle collection"
+},
+{
+"type": "text",
+"id": "heading",
+"label": "Heading",
+"default": "Build your quantity bundle"
+},
+{
+"type": "text",
+"id": "sidebar_heading",
+"label": "Sidebar heading",
+"default": "Your bundle"
+},
+{
+"type": "checkbox",
+"id": "one_per_variant",
+"label": "Allow only one of each variant",
+"default": false,
+"info": "When disabled, shoppers can add any quantity of the same variant. Bundle quantities and discounts are configured in the Discount Bundle app."
+},
+{ "type": "header", "content": "Bundle offers" },
+{ "type": "paragraph", "content": "Set these to the same quantities and discounts created in Discount Bundle. Enable the offers you want shoppers to see." },
+{ "type": "checkbox", "id": "bundle_offer_1_enabled", "label": "Enable offer 1", "default": true },
+{ "type": "range", "id": "bundle_offer_1_quantity", "label": "Offer 1: number of items", "min": 2, "max": 50, "step": 1, "default": 2 },
+{ "type": "select", "id": "bundle_offer_1_type", "label": "Offer 1: discount type", "default": "percentage", "options": [{ "value": "percentage", "label": "Percentage off" }, { "value": "fixed_price", "label": "Fixed total bundle price" }] },
+{ "type": "number", "id": "bundle_offer_1_value", "label": "Offer 1: percentage or fixed price", "default": 10 },
+{ "type": "checkbox", "id": "bundle_offer_2_enabled", "label": "Enable offer 2", "default": true },
+{ "type": "range", "id": "bundle_offer_2_quantity", "label": "Offer 2: number of items", "min": 2, "max": 50, "step": 1, "default": 3 },
+{ "type": "select", "id": "bundle_offer_2_type", "label": "Offer 2: discount type", "default": "percentage", "options": [{ "value": "percentage", "label": "Percentage off" }, { "value": "fixed_price", "label": "Fixed total bundle price" }] },
+{ "type": "number", "id": "bundle_offer_2_value", "label": "Offer 2: percentage or fixed price", "default": 15 },
+{ "type": "checkbox", "id": "bundle_offer_3_enabled", "label": "Enable offer 3", "default": false },
+{ "type": "range", "id": "bundle_offer_3_quantity", "label": "Offer 3: number of items", "min": 2, "max": 50, "step": 1, "default": 4 },
+{ "type": "select", "id": "bundle_offer_3_type", "label": "Offer 3: discount type", "default": "percentage", "options": [{ "value": "percentage", "label": "Percentage off" }, { "value": "fixed_price", "label": "Fixed total bundle price" }] },
+{ "type": "number", "id": "bundle_offer_3_value", "label": "Offer 3: percentage or fixed price", "default": 20 },
+{ "type": "checkbox", "id": "bundle_offer_4_enabled", "label": "Enable offer 4", "default": false },
+{ "type": "range", "id": "bundle_offer_4_quantity", "label": "Offer 4: number of items", "min": 2, "max": 50, "step": 1, "default": 5 },
+{ "type": "select", "id": "bundle_offer_4_type", "label": "Offer 4: discount type", "default": "percentage", "options": [{ "value": "percentage", "label": "Percentage off" }, { "value": "fixed_price", "label": "Fixed total bundle price" }] },
+{ "type": "number", "id": "bundle_offer_4_value", "label": "Offer 4: percentage or fixed price", "default": 25 },
+{
+"type": "select",
+"id": "checkout_mode",
+"label": "Checkout button mode",
+"default": "shopify",
+"options": [
+{ "value": "shopify", "label": "Shopify checkout" },
+{ "value": "custom", "label": "Custom checkout URL" }
+]
+},
+{
+"type": "text",
+"id": "shopify_checkout_label",
+"label": "Shopify checkout button label",
+"default": "Checkout securely"
+},
+{
+"type": "text",
+"id": "custom_checkout_label",
+"label": "Custom checkout button label",
+"default": "Continue"
+},
+{
+"type": "textarea",
+"id": "custom_checkout_url",
+"label": "GoKwik / Shiprocket checkout code or URL",
+"info": "Pro only. Paste a provider-approved code snippet or URL. It runs only after items are added to Shopify cart. Supported placeholders: {{shop_url}}, {{shop_root}}, {{checkout_url}}, {{cart_url}}, {{bundle_total}}, {{regular_total}}, {{bundle_size}}, {{variant_ids}}. Never paste API keys."
+},
+{
+"type": "color",
+"id": "background_color",
+"label": "Background color",
+"default": "#f7efe4"
+},
+{
+"type": "color",
+"id": "card_color",
+"label": "Card color",
+"default": "#ffffff"
+},
+{
+"type": "color",
+"id": "text_color",
+"label": "Text color",
+"default": "#18181b"
+},
+{
+"type": "color",
+"id": "muted_text_color",
+"label": "Muted text color",
+"default": "#6b7280"
+},
+{
+"type": "color",
+"id": "accent_color",
+"label": "Accent color",
+"default": "#0f766e"
+},
+{
+"type": "color",
+"id": "accent_soft_color",
+"label": "Soft accent color",
+"default": "#ddf4ef"
+},
+{
+"type": "image_picker",
+"id": "bundle_image",
+"label": "Header image"
+},
+{
+"type": "text",
+"id": "Product_label",
+"label": "Product label",
+"default": "Bundle Offer"
+}
+]
 }
 {% endschema %}

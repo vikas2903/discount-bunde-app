@@ -1,127 +1,124 @@
 {%- liquid
-  assign offer_product = block.settings.product | default: product
-  assign selected_variant = offer_product.selected_or_first_available_variant
+assign offer_product = block.settings.product | default: product
+assign selected_variant = offer_product.selected_or_first_available_variant
 -%}
 
 <section
-  class="quantity-offers quantity-offers--{{ block.id }}"
-  data-quantity-offers
-  data-shop-root="{{ routes.root_url }}"
-  data-button-action="{{ block.settings.button_action }}"
-  data-custom-checkout="{{ block.settings.custom_checkout_code | escape }}"
-  style="--qo-accent: {{ block.settings.accent_color }}; --qo-bg: {{ block.settings.background_color }}; --qo-border: {{ block.settings.border_color }}; --qo-text: {{ block.settings.text_color }};"
+class="quantity-offers quantity-offers--{{ block.id }}"
+data-quantity-offers
+data-shop-root="{{ routes.root_url }}"
+data-button-action="{{ block.settings.button_action }}"
+data-custom-checkout="{{ block.settings.custom_checkout_code | escape }}"
+style="--qo-accent: {{ block.settings.accent_color }}; --qo-bg: {{ block.settings.background_color }}; --qo-border: #dbe4ea; --qo-text: {{ block.settings.text_color }};"
 >
-  {%- if offer_product != blank -%}
-    <div class="quantity-offers__header">
-      {%- if block.settings.heading != blank -%}<p class="quantity-offers__eyebrow">{{ block.settings.heading }}</p>{%- endif -%}
-      {%- if block.settings.subheading != blank -%}<p class="quantity-offers__subheading">{{ block.settings.subheading }}</p>{%- endif -%}
-    </div>
+{%- if offer_product != blank -%}
+<div class="quantity-offers__header">
+{%- if block.settings.heading != blank -%}<p class="quantity-offers__eyebrow">{{ block.settings.heading }}</p>{%- endif -%}
+{%- if block.settings.subheading != blank -%}<p class="quantity-offers__subheading">{{ block.settings.subheading }}</p>{%- endif -%}
+</div>
 
-    {%- if offer_product.variants.size > 1 and block.settings.show_variant_picker -%}
-      <label class="quantity-offers__variant-label">
-        <span>Choose option</span>
-        <select class="quantity-offers__variant" data-variant-select>
-          {%- for variant in offer_product.variants -%}
-            <option value="{{ variant.id }}" data-price="{{ variant.price }}" {% unless variant.available %}disabled{% endunless %} {% if variant.id == selected_variant.id %}selected{% endif %}>
-              {{ variant.title }}{% unless variant.available %} — Sold out{% endunless %}
-            </option>
-          {%- endfor -%}
-        </select>
-      </label>
-    {%- endif -%}
+{%- if offer_product.variants.size > 1 and block.settings.show_variant_picker -%}
+<label class="quantity-offers__variant-label">
+<span>Choose option</span>
+<select class="quantity-offers__variant" data-variant-select>
+{%- for variant in offer_product.variants -%}
+<option value="{{ variant.id }}" data-price="{{ variant.price }}" {% unless variant.available %}disabled{% endunless %} {% if variant.id == selected_variant.id %}selected{% endif %}>
+{{ variant.title }}{% unless variant.available %} — Sold out{% endunless %}
+</option>
+{%- endfor -%}
+</select>
+</label>
+{%- endif -%}
 
-    <div class="quantity-offers__tiers" data-tier-list>
-      {%- if block.settings.show_tier_2 -%}
-        <button type="button" class="quantity-offers__tier" data-tier data-quantity="{{ block.settings.tier_2_quantity }}" data-type="{{ block.settings.tier_2_discount_type }}" data-value="{{ block.settings.tier_2_discount_value }}">
-          <span class="quantity-offers__radio"></span><span><strong>Buy {{ block.settings.tier_2_quantity }}</strong><small>{{ block.settings.tier_2_label }}</small></span><b data-tier-saving></b>
-        </button>
-      {%- endif -%}
-      {%- if block.settings.show_tier_3 -%}
-        <button type="button" class="quantity-offers__tier" data-tier data-quantity="{{ block.settings.tier_3_quantity }}" data-type="{{ block.settings.tier_3_discount_type }}" data-value="{{ block.settings.tier_3_discount_value }}">
-          <span class="quantity-offers__radio"></span><span><strong>Buy {{ block.settings.tier_3_quantity }}</strong><small>{{ block.settings.tier_3_label }}</small></span><b data-tier-saving></b>
-        </button>
-      {%- endif -%}
-      {%- if block.settings.show_tier_4 -%}
-        <button type="button" class="quantity-offers__tier" data-tier data-quantity="{{ block.settings.tier_4_quantity }}" data-type="{{ block.settings.tier_4_discount_type }}" data-value="{{ block.settings.tier_4_discount_value }}">
-          <span class="quantity-offers__radio"></span><span><strong>Buy {{ block.settings.tier_4_quantity }}</strong><small>{{ block.settings.tier_4_label }}</small></span><b data-tier-saving></b>
-        </button>
-      {%- endif -%}
-    </div>
+<div class="quantity-offers__tiers" data-tier-list>
+{%- if block.settings.show_tier_2 -%}
+<button type="button" class="quantity-offers__tier" data-tier data-quantity="{{ block.settings.tier_2_quantity }}" data-type="{{ block.settings.tier_2_discount_type }}" data-value="{{ block.settings.tier_2_discount_value }}">
+<span class="quantity-offers__radio"></span><span><strong>Buy {{ block.settings.tier_2_quantity }}</strong><small>{{ block.settings.tier_2_label }}</small></span><b data-tier-saving></b>
+</button>
+{%- endif -%}
+{%- if block.settings.show_tier_3 -%}
+<button type="button" class="quantity-offers__tier" data-tier data-quantity="{{ block.settings.tier_3_quantity }}" data-type="{{ block.settings.tier_3_discount_type }}" data-value="{{ block.settings.tier_3_discount_value }}">
+<span class="quantity-offers__radio"></span><span><strong>Buy {{ block.settings.tier_3_quantity }}</strong><small>{{ block.settings.tier_3_label }}</small></span><b data-tier-saving></b>
+</button>
+{%- endif -%}
+{%- if block.settings.show_tier_4 -%}
+<button type="button" class="quantity-offers__tier" data-tier data-quantity="{{ block.settings.tier_4_quantity }}" data-type="{{ block.settings.tier_4_discount_type }}" data-value="{{ block.settings.tier_4_discount_value }}">
+<span class="quantity-offers__radio"></span><span><strong>Buy {{ block.settings.tier_4_quantity }}</strong><small>{{ block.settings.tier_4_label }}</small></span><b data-tier-saving></b>
+</button>
+{%- endif -%}
+</div>
+<div class="quantity-offers__footer">
+<label class="quantity-offers__quantity-label">Quantity <input data-quantity-input type="number" min="1" value="1"></label>
+<button type="button" class="quantity-offers__button" data-add-button {% unless selected_variant.available %}disabled{% endunless %}>{{ block.settings.button_label }}</button>
+</div>
 
-
-    <div class="quantity-offers__footer">
-     <label class="quantity-offers__quantity-label">Quantity <input data-quantity-input type="number" min="1" value="1"></label>
-      <button type="button" class="quantity-offers__button" data-add-button {% unless selected_variant.available %}disabled{% endunless %}>{{ block.settings.button_label }}</button>
-    </div>
-
-    <p class="quantity-offers__notice" data-notice>{{ block.settings.footer_note }}</p>
-    <script type="application/json" data-variants>{{ offer_product.variants | json }}</script>
-  {%- else -%}
-    <p class="quantity-offers__empty">Choose a product in this app block’s settings.</p>
-  {%- endif -%}
+<p class="quantity-offers__notice" data-notice>{{ block.settings.footer_note }}</p>
+<script type="application/json" data-variants>{{ offer_product.variants | json }}</script>
+{%- else -%}
+<p class="quantity-offers__empty">Choose a product in this app block’s settings.</p>
+{%- endif -%}
 </section>
 
 <style>
-  .quantity-offers { background:var(--qo-bg); border:1px solid var(--qo-border); border-radius:14px; color:var(--qo-text); padding:18px; max-width:620px; }
-  .quantity-offers__header { margin-bottom:14px; }.quantity-offers__eyebrow { margin:0; color:var(--qo-accent); font-weight:800; font-size:15px; }.quantity-offers__subheading,.quantity-offers__notice { margin:5px 0 0; color:#64748b; font-size:13px; line-height:1.45; }
-  .quantity-offers__variant-label { display:grid; gap:6px; margin:0 0 14px; font-size:13px; font-weight:700; }.quantity-offers__variant,.quantity-offers__quantity-label input { border:1px solid var(--qo-border); border-radius:8px; padding:9px; background:#fff; color:#1f2937; }
-  .quantity-offers__tiers { display:grid; gap:9px; }.quantity-offers__tier { display:grid; grid-template-columns:20px minmax(0,1fr) auto; text-align:left; align-items:center; gap:10px; border:1px solid var(--qo-border); border-radius:10px; padding:12px; background:#fff; color:var(--qo-text); cursor:pointer; }.quantity-offers__tier:hover,.quantity-offers__tier.is-selected { border-color:var(--qo-accent); box-shadow:0 0 0 2px color-mix(in srgb,var(--qo-accent) 18%,transparent); }.quantity-offers__tier strong,.quantity-offers__tier small { display:block; }.quantity-offers__tier small { margin-top:2px; color:#64748b; font-size:12px; }.quantity-offers__tier b { color:var(--qo-accent); font-size:13px; }.quantity-offers__radio { width:15px; height:15px; border:2px solid #94a3b8; border-radius:50%; }.quantity-offers__tier.is-selected .quantity-offers__radio { border-color:var(--qo-accent); box-shadow:inset 0 0 0 3px #fff; background:var(--qo-accent); }
-  .quantity-offers__footer { display:flex; gap:10px; align-items:end; margin-top:14px; }.quantity-offers__quantity-label { display:grid; gap:5px; font-size:12px; font-weight:700; }.quantity-offers__quantity-label input { width:70px; }.quantity-offers__button { flex:1; border:0; border-radius:8px; padding:11px 14px; background:var(--qo-accent); color:#fff; font-weight:800; cursor:pointer; }.quantity-offers__button:disabled { opacity:.55; cursor:not-allowed; }.quantity-offers__empty { margin:0; padding:12px; color:#64748b; }
-  @media(max-width:480px) { .quantity-offers { padding:14px; }.quantity-offers__footer { align-items:stretch; flex-direction:column; }.quantity-offers__quantity-label input { width:100%; box-sizing:border-box; } }
+.quantity-offers { background:var(--qo-bg); border:1px solid var(--qo-border); border-radius:14px; color:var(--qo-text); padding:18px; max-width:620px; }
+.quantity-offers__header { margin-bottom:14px; }.quantity-offers__eyebrow { margin:0; color:var(--qo-accent); font-weight:800; font-size:15px; }.quantity-offers__subheading,.quantity-offers__notice { margin:5px 0 0; color:#64748b; font-size:13px; line-height:1.45; }
+.quantity-offers__variant-label { display:grid; gap:6px; margin:0 0 14px; font-size:13px; font-weight:700; }.quantity-offers__variant,.quantity-offers__quantity-label input { border:1px solid var(--qo-border); border-radius:8px; padding:9px; background:#fff; color:#1f2937; }
+.quantity-offers__tiers { display:grid; gap:9px; }.quantity-offers__tier { display:grid; grid-template-columns:20px minmax(0,1fr) auto; text-align:left; align-items:center; gap:10px; border:1px solid var(--qo-border); border-radius:10px; padding:12px; background:#fff; color:var(--qo-text); cursor:pointer; }.quantity-offers__tier:hover,.quantity-offers__tier.is-selected { border-color:var(--qo-accent); box-shadow:0 0 0 2px color-mix(in srgb,var(--qo-accent) 18%,transparent); }.quantity-offers__tier strong,.quantity-offers__tier small { display:block; }.quantity-offers__tier small { margin-top:2px; color:#64748b; font-size:12px; }.quantity-offers__tier b { color:var(--qo-accent); font-size:13px; }.quantity-offers__radio { width:15px; height:15px; border:2px solid #94a3b8; border-radius:50%; }.quantity-offers__tier.is-selected .quantity-offers__radio { border-color:var(--qo-accent); box-shadow:inset 0 0 0 3px #fff; background:var(--qo-accent); }
+.quantity-offers__footer { display:flex; gap:10px; align-items:end; margin-top:14px; }.quantity-offers__quantity-label { display:grid; gap:5px; font-size:12px; font-weight:700; }.quantity-offers__quantity-label input { width:70px; }.quantity-offers__button { flex:1; border:0; border-radius:8px; padding:11px 14px; background:var(--qo-accent); color:#fff; font-weight:800; cursor:pointer; }.quantity-offers__button:disabled { opacity:.55; cursor:not-allowed; }.quantity-offers__empty { margin:0; padding:12px; color:#64748b; }
+@media(max-width:480px) { .quantity-offers { padding:14px; }.quantity-offers__footer { align-items:stretch; flex-direction:column; }.quantity-offers__quantity-label input { width:100%; box-sizing:border-box; } }
 </style>
 
 <script>
 (() => {
-  const root = document.querySelector('.quantity-offers--{{ block.id }}'); if (!root) return;
-  const tiers = [...root.querySelectorAll('[data-tier]')]; const qtyInput = root.querySelector('[data-quantity-input]'); const button = root.querySelector('[data-add-button]'); const notice = root.querySelector('[data-notice]'); const variantSelect = root.querySelector('[data-variant-select]');
-  let selectedTier = tiers[0] || null;
-  const money = new Intl.NumberFormat(undefined, { style:'currency', currency:'{{ cart.currency.iso_code | default: shop.currency }}' });
-  const selectedVariantId = () => Number(variantSelect?.value || '{{ selected_variant.id }}');
-  const formatTier = (tier) => { const quantity=Number(tier.dataset.quantity||0); const value=Number(tier.dataset.value||0); return tier.dataset.type === 'fixed' ? `Save ${money.format(value)} each` : `Save ${value}%`; };
-  const selectTier = (tier) => { selectedTier=tier; tiers.forEach((item)=>item.classList.toggle('is-selected',item===tier)); qtyInput.value=tier.dataset.quantity; };
-  tiers.forEach((tier) => { tier.querySelector('[data-tier-saving]').textContent=formatTier(tier); tier.addEventListener('click',()=>selectTier(tier)); }); if (selectedTier) selectTier(selectedTier);
-  button?.addEventListener('click', async () => {
-    const quantity=Math.max(1,Number(qtyInput.value||1)); const variantId=selectedVariantId(); if (!variantId) return;
-    button.disabled=true; button.textContent='Adding...';
-    try { const response=await fetch((root.dataset.shopRoot||'/')+'cart/add.js',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({items:[{id:variantId,quantity,properties:{_quantity_offer:`Buy ${quantity}`,_quantity_offer_source:'discount-bundle-app'}}]})}); if(!response.ok) throw new Error('Could not add items');
-      const action=root.dataset.buttonAction||'cart'; if(action==='custom' && root.dataset.customCheckout){ const payload={variantId,quantity,cartUrl:(root.dataset.shopRoot||'/')+'cart',checkoutUrl:(root.dataset.shopRoot||'/')+'checkout'}; new Function('payload','window','document',root.dataset.customCheckout)(payload,window,document); return; } window.location.href=(root.dataset.shopRoot||'/')+(action==='checkout'?'checkout':'cart');
-    } catch(error) { notice.textContent='Could not add this offer to cart. Please try again.'; button.disabled=false; button.textContent='{{ block.settings.button_label | escape }}'; }
-  });
+const root = document.querySelector('.quantity-offers--{{ block.id }}'); if (!root) return;
+const tiers = [...root.querySelectorAll('[data-tier]')]; const qtyInput = root.querySelector('[data-quantity-input]'); const button = root.querySelector('[data-add-button]'); const notice = root.querySelector('[data-notice]'); const variantSelect = root.querySelector('[data-variant-select]');
+let selectedTier = tiers[0] || null;
+const money = new Intl.NumberFormat(undefined, { style:'currency', currency:'{{ cart.currency.iso_code | default: shop.currency }}' });
+const selectedVariantId = () => Number(variantSelect?.value || '{{ selected_variant.id }}');
+const formatTier = (tier) => { const quantity=Number(tier.dataset.quantity||0); const value=Number(tier.dataset.value||0); return tier.dataset.type === 'fixed' ? `Save ${money.format(value)} each` : `Save ${value}%`; };
+const selectTier = (tier) => { selectedTier=tier; tiers.forEach((item)=>item.classList.toggle('is-selected',item===tier)); qtyInput.value=tier.dataset.quantity; };
+tiers.forEach((tier) => { tier.querySelector('[data-tier-saving]').textContent=formatTier(tier); tier.addEventListener('click',()=>selectTier(tier)); }); if (selectedTier) selectTier(selectedTier);
+button?.addEventListener('click', async () => {
+const quantity=Math.max(1,Number(qtyInput.value||1)); const variantId=selectedVariantId(); if (!variantId) return;
+button.disabled=true; button.textContent='Adding...';
+try { const response=await fetch((root.dataset.shopRoot||'/')+'cart/add.js',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({items:[{id:variantId,quantity,properties:{_quantity_offer:`Buy ${quantity}`,_quantity_offer_source:'discount-bundle-app'}}]})}); if(!response.ok) throw new Error('Could not add items');
+const action=root.dataset.buttonAction||'cart'; if(action==='custom' && root.dataset.customCheckout){ const payload={variantId,quantity,cartUrl:(root.dataset.shopRoot||'/')+'cart',checkoutUrl:(root.dataset.shopRoot||'/')+'checkout'}; new Function('payload','window','document',root.dataset.customCheckout)(payload,window,document); return; } window.location.href=(root.dataset.shopRoot||'/')+(action==='checkout'?'checkout':'cart');
+} catch(error) { notice.textContent='Could not add this offer to cart. Please try again.'; button.disabled=false; button.textContent='{{ block.settings.button_label | escape }}'; }
+});
 })();
 </script>
 
 {% schema %}
 {
-  "name": "Quantity offers",
-  "target": "section",
-  "settings": [
-    { "type": "product", "id": "product", "label": "Offer product", "autofill": true },
-    { "type": "text", "id": "heading", "label": "Heading", "default": "Buy more, save more" },
-    { "type": "text", "id": "subheading", "label": "Subheading", "default": "Choose a quantity offer below" },
-    { "type": "checkbox", "id": "show_variant_picker", "label": "Show variant picker", "default": true },
-    { "type": "checkbox", "id": "show_tier_2", "label": "Show offer 1", "default": true },
-    { "type": "number", "id": "tier_2_quantity", "label": "Offer 1 quantity", "default": 2 },
-    { "type": "select", "id": "tier_2_discount_type", "label": "Offer 1 saving type", "default": "percentage", "options": [{"value":"percentage","label":"Percentage"},{"value":"fixed","label":"Fixed amount per item"}] },
-    { "type": "number", "id": "tier_2_discount_value", "label": "Offer 1 saving value", "default": 5 },
-    { "type": "text", "id": "tier_2_label", "label": "Offer 1 label", "default": "Great for trying more" },
-    { "type": "checkbox", "id": "show_tier_3", "label": "Show offer 2", "default": true },
-    { "type": "number", "id": "tier_3_quantity", "label": "Offer 2 quantity", "default": 3 },
-    { "type": "select", "id": "tier_3_discount_type", "label": "Offer 2 saving type", "default": "percentage", "options": [{"value":"percentage","label":"Percentage"},{"value":"fixed","label":"Fixed amount per item"}] },
-    { "type": "number", "id": "tier_3_discount_value", "label": "Offer 2 saving value", "default": 10 },
-    { "type": "text", "id": "tier_3_label", "label": "Offer 2 label", "default": "Most popular" },
-    { "type": "checkbox", "id": "show_tier_4", "label": "Show offer 3", "default": true },
-    { "type": "number", "id": "tier_4_quantity", "label": "Offer 3 quantity", "default": 4 },
-    { "type": "select", "id": "tier_4_discount_type", "label": "Offer 3 saving type", "default": "percentage", "options": [{"value":"percentage","label":"Percentage"},{"value":"fixed","label":"Fixed amount per item"}] },
-    { "type": "number", "id": "tier_4_discount_value", "label": "Offer 3 saving value", "default": 15 },
-    { "type": "text", "id": "tier_4_label", "label": "Offer 3 label", "default": "Best value" },
-    { "type": "text", "id": "button_label", "label": "Button label", "default": "Add offer to cart" },
-    { "type": "select", "id": "button_action", "label": "After adding", "default": "cart", "options": [{"value":"cart","label":"Open cart"},{"value":"checkout","label":"Go to checkout"},{"value":"custom","label":"Run custom checkout code"}] },
-    { "type": "textarea", "id": "custom_checkout_code", "label": "GoKwik / Shiprocket code", "info": "Runs after the selected quantity is added to Shopify cart. Paste only provider-approved storefront code; never include private API keys." },
-    { "type": "text", "id": "footer_note", "label": "Footer note", "default": "Discount is applied automatically when your cart qualifies." },
-    { "type": "color", "id": "accent_color", "label": "Accent color", "default": "#047857" },
-    { "type": "color", "id": "background_color", "label": "Background color", "default": "#f8fafc" },
-    { "type": "color", "id": "border_color", "label": "Border color", "default": "#dbe4ea" },
-    { "type": "color", "id": "text_color", "label": "Text color", "default": "#0f172a" }
-  ]
+"name": "Quantity offers",
+"target": "section",
+"settings": [
+{ "type": "product", "id": "product", "label": "Offer product", "autofill": true },
+{ "type": "text", "id": "heading", "label": "Heading", "default": "Buy more, save more" },
+{ "type": "text", "id": "subheading", "label": "Subheading", "default": "Choose a quantity offer below" },
+{ "type": "checkbox", "id": "show_variant_picker", "label": "Show variant picker", "default": true },
+{ "type": "checkbox", "id": "show_tier_2", "label": "Show offer 1", "default": true },
+{ "type": "number", "id": "tier_2_quantity", "label": "Offer 1 quantity", "default": 2 },
+{ "type": "select", "id": "tier_2_discount_type", "label": "Offer 1 saving type", "default": "percentage", "options": [{"value":"percentage","label":"Percentage"},{"value":"fixed","label":"Fixed amount per item"}] },
+{ "type": "number", "id": "tier_2_discount_value", "label": "Offer 1 saving value", "default": 5 },
+{ "type": "text", "id": "tier_2_label", "label": "Offer 1 label", "default": "Great for trying more" },
+{ "type": "checkbox", "id": "show_tier_3", "label": "Show offer 2", "default": true },
+{ "type": "number", "id": "tier_3_quantity", "label": "Offer 2 quantity", "default": 3 },
+{ "type": "select", "id": "tier_3_discount_type", "label": "Offer 2 saving type", "default": "percentage", "options": [{"value":"percentage","label":"Percentage"},{"value":"fixed","label":"Fixed amount per item"}] },
+{ "type": "number", "id": "tier_3_discount_value", "label": "Offer 2 saving value", "default": 10 },
+{ "type": "text", "id": "tier_3_label", "label": "Offer 2 label", "default": "Most popular" },
+{ "type": "checkbox", "id": "show_tier_4", "label": "Show offer 3", "default": true },
+{ "type": "number", "id": "tier_4_quantity", "label": "Offer 3 quantity", "default": 4 },
+{ "type": "select", "id": "tier_4_discount_type", "label": "Offer 3 saving type", "default": "percentage", "options": [{"value":"percentage","label":"Percentage"},{"value":"fixed","label":"Fixed amount per item"}] },
+{ "type": "number", "id": "tier_4_discount_value", "label": "Offer 3 saving value", "default": 15 },
+{ "type": "text", "id": "tier_4_label", "label": "Offer 3 label", "default": "Best value" },
+{ "type": "text", "id": "button_label", "label": "Button label", "default": "Add offer to cart" },
+{ "type": "select", "id": "button_action", "label": "After adding", "default": "cart", "options": [{"value":"cart","label":"Open cart"},{"value":"checkout","label":"Go to checkout"},{"value":"custom","label":"Run custom checkout code"}] },
+{ "type": "textarea", "id": "custom_checkout_code", "label": "GoKwik / Shiprocket code", "info": "Runs after the selected quantity is added to Shopify cart. Paste only provider-approved storefront code; never include private API keys." },
+{ "type": "text", "id": "footer_note", "label": "Footer note", "default": "Discount is applied automatically when your cart qualifies." },
+{ "type": "color", "id": "accent_color", "label": "Accent color", "default": "#047857" },
+{ "type": "color", "id": "background_color", "label": "Background color", "default": "#f8fafc" },
+{ "type": "color", "id": "text_color", "label": "Text color", "default": "#0f172a" }
+]
 }
 {% endschema %}

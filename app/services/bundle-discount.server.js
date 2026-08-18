@@ -296,7 +296,9 @@ function parseDiscountNodes(edges = []) {
       }
 
       return {
-        nodeId: automaticDiscount.discountId,
+        // Shopify mutations for automatic discounts require the
+        // DiscountAutomaticNode ID, not DiscountAutomaticApp.discountId.
+        nodeId: node.id,
         adminGraphqlNodeId: node.id,
         discountId: automaticDiscount.discountId,
         title: automaticDiscount.title,

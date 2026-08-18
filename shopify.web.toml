@@ -4,4 +4,4 @@ webhooks_path = "/webhooks/app/uninstalled"
 
 [commands]
 predev = ""
-dev = "npm exec react-router dev"
+dev = "npm run dev:react-router"
