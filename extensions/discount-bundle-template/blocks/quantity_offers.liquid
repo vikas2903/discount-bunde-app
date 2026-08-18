@@ -7,7 +7,7 @@ assign selected_variant = offer_product.selected_or_first_available_variant
 class="quantity-offers quantity-offers--{{ block.id }}"
 data-quantity-offers
 data-shop-root="{{ routes.root_url }}"
-data-button-action="{{ block.settings.button_action }}"
+data-button-action="{{ block.settings.button_action | default: 'checkout' }}"
 data-custom-checkout="{{ block.settings.custom_checkout_code | escape }}"
 style="--qo-accent: {{ block.settings.accent_color }}; --qo-bg: {{ block.settings.background_color }}; --qo-border: #dbe4ea; --qo-text: {{ block.settings.text_color }};"
 >
@@ -113,7 +113,7 @@ const action=root.dataset.buttonAction||'cart'; if(action==='custom' && root.dat
 { "type": "number", "id": "tier_4_discount_value", "label": "Offer 3 saving value", "default": 15 },
 { "type": "text", "id": "tier_4_label", "label": "Offer 3 label", "default": "Best value" },
 { "type": "text", "id": "button_label", "label": "Button label", "default": "Add offer to cart" },
-{ "type": "select", "id": "button_action", "label": "After adding", "default": "cart", "options": [{"value":"cart","label":"Open cart"},{"value":"checkout","label":"Go to checkout"},{"value":"custom","label":"Run custom checkout code"}] },
+{ "type": "select", "id": "button_action", "label": "After adding", "default": "checkout", "options": [{"value":"cart","label":"Open cart"},{"value":"checkout","label":"Go to checkout"},{"value":"custom","label":"Run custom checkout code"}] },
 { "type": "textarea", "id": "custom_checkout_code", "label": "GoKwik / Shiprocket code", "info": "Runs after the selected quantity is added to Shopify cart. Paste only provider-approved storefront code; never include private API keys." },
 { "type": "text", "id": "footer_note", "label": "Footer note", "default": "Discount is applied automatically when your cart qualifies." },
 { "type": "color", "id": "accent_color", "label": "Accent color", "default": "#047857" },
