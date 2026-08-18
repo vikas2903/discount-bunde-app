@@ -308,7 +308,13 @@
     }
 
     @media (min-width: 1025px) {
+      .bundle-collection__summary {
+        height: calc(100dvh - 48px);
+        overflow: hidden;
+      }
+
       .bundle-collection__summary-card {
+        height: 100%;
         max-height: calc(100dvh - 48px);
         overflow-y: auto;
         overscroll-behavior: contain;
