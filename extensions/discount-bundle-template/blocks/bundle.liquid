@@ -7,15 +7,28 @@
   endif
   assign checkout_mode = block.settings.checkout_mode | default: 'shopify'
   assign shopify_checkout_label = block.settings.shopify_checkout_label | default: 'Checkout securely'
-  assign default_offer = block.settings.default_offer | default: 'offer_3_fixed'
-  assign offer_3_fixed_price = block.settings.offer_3_fixed_price | default: 999
-  assign offer_2_fixed_price = block.settings.offer_2_fixed_price | default: 799
-  assign offer_3_percent_discount = block.settings.offer_3_percent_discount | default: 25
-  assign offer_2_percent_discount = block.settings.offer_2_percent_discount | default: 10
-  assign show_offer_3_fixed = block.settings.show_offer_3_fixed
-  assign show_offer_2_fixed = block.settings.show_offer_2_fixed
-  assign show_offer_3_percent = block.settings.show_offer_3_percent
-  assign show_offer_2_percent = block.settings.show_offer_2_percent
+  capture bundle_tiers
+    echo '['
+    for offer_index in (1..4)
+      assign offer_enabled_key = 'bundle_offer_' | append: offer_index | append: '_enabled'
+      assign offer_quantity_key = 'bundle_offer_' | append: offer_index | append: '_quantity'
+      assign offer_type_key = 'bundle_offer_' | append: offer_index | append: '_type'
+      assign offer_value_key = 'bundle_offer_' | append: offer_index | append: '_value'
+      echo '{"enabled":'
+      echo block.settings[offer_enabled_key] | json
+      echo ',"quantity":'
+      echo block.settings[offer_quantity_key] | json
+      echo ',"discountType":'
+      echo block.settings[offer_type_key] | json
+      echo ',"value":'
+      echo block.settings[offer_value_key] | json
+      echo '}'
+      unless forloop.last
+        echo ','
+      endunless
+    endfor
+    echo ']'
+  endcapture
   assign bundle_image = block.settings.bundle_image
 -%}
 
@@ -30,7 +43,8 @@
   data-shopify-checkout-label="{{ shopify_checkout_label | escape }}"
   data-checkout-label="{{ block.settings.custom_checkout_label | escape }}"
   data-custom-checkout-script="{{ block.settings.custom_checkout_url | escape }}"
-  data-default-offer="{{ default_offer }}"
+  data-one-per-variant="{{ block.settings.one_per_variant }}"
+  data-bundle-tiers="{{ bundle_tiers | strip_newlines | escape }}"
   data-total-products="{{ bundle_collection_source.products_count }}"
 >
   <div class="bundle-collection__shell page-width">
@@ -82,6 +96,7 @@
               data-default-variant-title="{{ default_variant.title | default: 'Default title' | escape }}"
               data-default-price="{{ default_variant.price }}"
               data-has-multiple-variants="{{ has_multiple_variants }}"
+              data-product-available="{{ product.available }}"
             >
               <div class="bundle-collection__card-media">
                 <a class="bundle-collection__card-link" href="{{ product.url }}">
@@ -100,11 +115,15 @@
                   {%- endif -%}
                 </a>
 
-                <span class="bundle-collection__card-badge">{{block.settings.Product_label}}</span>
+                {%- if product.available -%}
+                  <span class="bundle-collection__card-badge">{{ block.settings.Product_label }}</span>
+                {%- else -%}
+                  <span class="bundle-collection__card-badge bundle-collection__card-badge--sold-out">Out of stock</span>
+                {%- endif -%}
               </div>
 
               <div class="bundle-collection__card-body">
-                <a class="bundle-collection__card-title" href="{{ product.url }}">{{ product.title | truncate: 28 }}</a>
+                <a class="bundle-collection__card-title" href="{{ product.url }}">{{ product.title | truncate: 24 }}</a>
 
                 <div class="bundle-collection__card-price-row">
                   <span class="bundle-collection__card-price">{{ default_variant.price | money }}</span>
@@ -126,6 +145,7 @@
                     class="bundle-collection__card-toggle"
                     data-card-toggle
                     aria-pressed="false"
+                    {% unless product.available %}disabled aria-disabled="true"{% endunless %}
                   >
                     {%- if has_multiple_variants -%}
                       Choose options
@@ -187,73 +207,15 @@
       <div class="bundle-collection__summary-card">
         <h3 class="bundle-collection__summary-title">{{ block.settings.sidebar_heading }}</h3>
 
-        <div class="bundle-collection__offers" data-offer-options>
-          {%- if show_offer_3_fixed -%}
-            <label class="bundle-collection__offer-option{% if default_offer == 'offer_3_fixed' %} is-active{% endif %}">
-              <input
-                type="radio"
-                name="bundle-offer-{{ block.id }}"
-                value="offer_3_fixed"
-                data-offer-input
-                {% if default_offer == 'offer_3_fixed' %}checked{% endif %}
-              >
-              <span>Purchase 3 items @ {{ offer_3_fixed_price | times: 100 | money }}</span>
-            </label>
-          {%- endif -%}
-
-          {%- if show_offer_2_fixed -%}
-            <label class="bundle-collection__offer-option{% if default_offer == 'offer_2_fixed' %} is-active{% endif %}">
-              <input
-                type="radio"
-                name="bundle-offer-{{ block.id }}"
-                value="offer_2_fixed"
-                data-offer-input
-                {% if default_offer == 'offer_2_fixed' %}checked{% endif %}
-              >
-              <span>Purchase 2 items @ {{ offer_2_fixed_price | times: 100 | money }}</span>
-            </label>
-          {%- endif -%}
-          {%- if show_offer_3_percent -%}
-            <label class="bundle-collection__offer-option{% if default_offer == 'offer_3_percent' %} is-active{% endif %}">
-              <input type="radio" name="bundle-offer-{{ block.id }}" value="offer_3_percent" data-offer-input {% if default_offer == 'offer_3_percent' %}checked{% endif %}>
-              <span>Purchase 3 items and get {{ offer_3_percent_discount }}% off</span>
-            </label>
-          {%- endif -%}
-          {%- if show_offer_2_percent -%}
-            <label class="bundle-collection__offer-option{% if default_offer == 'offer_2_percent' %} is-active{% endif %}">
-              <input type="radio" name="bundle-offer-{{ block.id }}" value="offer_2_percent" data-offer-input {% if default_offer == 'offer_2_percent' %}checked{% endif %}>
-              <span>Purchase 2 items and get {{ offer_2_percent_discount }}% off</span>
-            </label>
-          {%- endif -%}
-
-        </div>
+        <div class="bundle-collection__offers" data-offer-options aria-label="Bundle offers"></div>
 
         <div class="bundle-collection__status" data-bundle-status>
-          Choose 3 products to get this offer.
+          Select the products and quantities you want in your bundle.
         </div>
 
         <div class="bundle-collection__progress">
-          <div class="bundle-collection__progress-steps">
-
-        {%- assign total_steps = 0 -%}
-
-        {%- if show_offer_3_fixed or show_offer_3_percent -%}
-          {%- assign total_steps = 3 -%}
-        {%- elsif show_offer_2_fixed or show_offer_2_percent -%}
-          {%- assign total_steps = 2 -%}
-        {%- else -%}
-          {%- assign total_steps = 3 -%}
-        {%- endif -%}
-
-        {%- for index in (1..total_steps) -%}
-          <span data-progress-step="{{ index }}">{{ index }}</span>
-        {%- endfor -%}
-
-
-          </div>
-
           <p class="bundle-collection__progress-text" data-progress-text>
-            Add 3 products to unlock the bundle offer.
+            Your discount is calculated from the active bundle discount at checkout.
           </p>
         </div>
 
@@ -267,20 +229,6 @@
             <strong data-regular-total>{{ 0 | money }}</strong>
           </div>
 
-          <div class="bundle-collection__total-row">
-            <span>Estimated discount</span>
-            <strong data-bundle-discount>-{{ 0 | money }}</strong>
-          </div>
-
-          <div class="bundle-collection__total-row bundle-collection__total-row--savings">
-            <span>You save</span>
-            <strong data-bundle-savings>{{ 0 | money }}</strong>
-          </div>
-
-          <div class="bundle-collection__total-row bundle-collection__total-row--highlight">
-            <span>Estimated total</span>
-            <strong data-bundle-total>{{ 0 | money }}</strong>
-          </div>
         </div>
 
         <button
@@ -321,45 +269,59 @@
       <div class="bundle-collection__modal-options" data-modal-options></div>
 
       <button type="button" class="bundle-collection__modal-submit" data-modal-submit disabled>
-        Add to cart
+        Add to bundle
       </button>
     </div>
   </div>
 
-  <script type="application/json" data-bundle-offers>
-    [
-      {
-        "key": "offer_3_fixed",
-        "quantity": 3,
-        "type": "fixed",
-        "fixedPrice": {{ offer_3_fixed_price | times: 100 | json }},
-        "percentDiscount": 0
-      },
-      {
-        "key": "offer_2_fixed",
-        "quantity": 2,
-        "type": "fixed",
-        "fixedPrice": {{ offer_2_fixed_price | times: 100 | json }},
-        "percentDiscount": 0
-      },
-      {
-        "key": "offer_3_percent",
-        "quantity": 3,
-        "type": "percent",
-        "fixedPrice": 0,
-        "percentDiscount": {{ offer_3_percent_discount | json }}
-      },
-      {
-        "key": "offer_2_percent",
-        "quantity": 2,
-        "type": "percent",
-        "fixedPrice": 0,
-        "percentDiscount": {{ offer_2_percent_discount | json }}
-      }
-    ]
-  </script>
 
-  <style>.bundle-collection {--bundle-bg:{{ block.settings.background_color }};--bundle-card:{{ block.settings.card_color }};--bundle-text:{{ block.settings.text_color }};--bundle-muted:{{ block.settings.muted_text_color }};--bundle-accent:{{ block.settings.accent_color }};--bundle-accent-soft:{{ block.settings.accent_soft_color }};--bundle-border:{{ block.settings.border_color }};--bundle-shadow:0 20px 60px rgba(17,24,39,0.08);background:transparent;color:var(--bundle-text);padding:36px 16px} .bundle-collection__card-badge {position:absolute;left:12px;bottom:12px;background:#0a8a16;color:#fff;border-radius:2px;padding:6px 10px;font-size:12px;line-height:1;font-weight:500;text-transform:uppercase} .bundle-collection__card-media {position:relative;padding:0;background:#fff} .bundle-collection__shell {display:grid;grid-template-columns:minmax(0,1.6fr) minmax(320px,410px);gap:24px;align-items:start} .bundle-collection__header {margin-bottom:24px} .bundle-collection__header-media {margin:14px 0 0} .bundle-collection__header-image {display:block;width:100%;height:auto;border-radius:16px;object-fit:cover} .bundle-collection__eyebrow,.bundle-collection__modal-eyebrow {margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--bundle-accent)} .bundle-collection__title,.bundle-collection__summary-title,.bundle-collection__modal-title {margin:0;color:var(--bundle-text);line-height:1.08} .bundle-collection__title {font-size:32px;margin:0 0 6px} .bundle-collection__summary-title,.bundle-collection__modal-title {font-size:24px} .bundle-collection__summary-copy,.bundle-collection__fineprint {color:var(--bundle-muted);font-size:14px;line-height:1.5} .bundle-collection__summary-copy {margin:8px 0 0} .bundle-collection__offers {display:grid;gap:10px;margin:18px 0 14px} .bundle-collection__offer-option {display:flex;align-items:center;gap:10px;padding:7px 14px;border:1px solid var(--bundle-border);border-radius:14px;background:#fff;cursor:pointer;transition:border-color 0.2s ease,background 0.2s ease,box-shadow 0.2s ease} .bundle-collection__offer-option.is-active {border-color:var(--bundle-accent);background:var(--bundle-accent-soft);box-shadow:0 10px 24px rgba(15,118,110,0.08)} .bundle-collection__offer-option input {margin:0;accent-color:var(--bundle-accent);flex:0 0 auto} .bundle-collection__offer-option span {color:var(--bundle-text);font-size:14px;font-weight:700;line-height:1.4} .bundle-collection__grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px} .bundle-collection__card {background:var(--bundle-card);border:1px solid var(--bundle-border);border-radius:8px;overflow:hidden;transition:transform 0.2s ease,border-color 0.2s ease,box-shadow 0.2s ease} .bundle-collection__card.is-selected {transform:translateY(-3px);border-color:var(--bundle-accent);box-shadow:0 18px 40px rgba(15,118,110,0.12)} .bundle-collection__card-link {display:block;aspect-ratio:0.88 / 1;background:#fff} .bundle-collection__card-image,.bundle-collection__card-placeholder {width:100%;height:100%;display:block;object-fit:cover;object-position:top} .bundle-collection__card-placeholder {background:linear-gradient(135deg,#f6efe7,#ece3d7)} .bundle-collection__card-body {display:grid;gap:8px;padding:0} .bundle-collection__card-title {color:var(--bundle-text);text-decoration:none;font-size:16px;font-weight:500;line-height:1;padding:6px 6px 0px} .bundle-collection__card-price-row,.bundle-collection__total-row {display:flex;align-items:center;justify-content:space-between;gap:12px} .bundle-collection__card-price-row {justify-content:flex-start} .bundle-collection__card-price {font-size:16px;font-weight:500;padding:0 6px} .bundle-collection__card-compare {color:var(--bundle-muted);text-decoration:line-through;font-size:13px;font-weight:600} .bundle-collection__card-meta {margin:0;color:var(--bundle-muted);font-size:0px;display:none} .bundle-collection__card-toggle,.bundle-collection__cta,.bundle-collection__modal-submit {width:100%;min-height:48px;border:0;border-radius:999px;background:var(--bundle-text);color:#fff;font-size:14px;font-weight:800;cursor:pointer;transition:opacity 0.2s ease,transform 0.2s ease} .bundle-collection__card-toggle{border-top-right-radius:0;border-top-left-radius:0} .bundle-collection__card-toggle {min-height:40px;background:#040000;color:#fff;border:1px solid var(--bundle-border);border-radius:6px;display:block;width:100%;max-width:100%;border-top-right-radius:0;border-top-left-radius:0;text-transform:capitalize} .bundle-collection__card.is-selected .bundle-collection__card-toggle {background:var(--bundle-accent);border-color:var(--bundle-accent);color:#fff} .bundle-collection__cta[disabled],.bundle-collection__modal-submit[disabled] {opacity:0.45;cursor:not-allowed} .bundle-collection__summary {position:sticky;top:24px} .bundle-collection__summary-card {background:rgba(255,255,255,0.94);border:1px solid var(--bundle-border);border-radius:10px;padding:10px 12px;box-shadow:var(--bundle-shadow)} .bundle-collection__status {margin:6px 0 8px;padding:6px 14px;border-radius:10px;background:var(--bundle-accent-soft);border:1px solid var(--bundle-accent);font-size:13px;font-weight:700} .bundle-collection__progress {margin:0 0 16px;padding:10px 14px;border-radius:16px;background:#fff;border:1px solid var(--bundle-border)} .bundle-collection__progress-steps {display:grid;{% if show_offer_2_fixed and show_offer_3_fixed %} grid-template-columns:repeat(3,1fr);{% elsif show_offer_2_fixed %} grid-template-columns:repeat(2,1fr);{% else %} grid-template-columns:repeat(3,1fr);{% endif %} gap:10px;margin-bottom:8px} .bundle-collection__progress-steps span {display:flex;align-items:center;justify-content:center;min-height:38px;border-radius:999px;border:1px solid var(--bundle-border);background:#f8f5ef;color:var(--bundle-muted);font-size:13px;font-weight:800} .bundle-collection__progress-steps span.is-active {background:var(--bundle-accent);border-color:var(--bundle-accent);color:#fff} .bundle-collection__progress-text {margin:0;font-size:12px;color:var(--bundle-muted);text-align:center} .bundle-collection__selected {display:grid;gap:10px;margin-bottom:16px} .bundle-collection__selected-track {display:contents} .bundle-collection__selected-empty,.bundle-collection__selected-item {border-radius:16px;border:1px dashed var(--bundle-border);padding:10px 14px;background:rgba(255,255,255,0.76)} .bundle-collection__selected-item {display:flex;align-items:center;justify-content:space-between;gap:12px;border-style:solid} .bundle-collection__selected-main {display:flex;align-items:center;gap:12px;min-width:0} .bundle-collection__selected-thumb {flex:0 0 52px;width:52px;height:52px;border-radius:12px;object-fit:cover;background:#f4efe8;display:block} .bundle-collection__selected-copy {min-width:0} .bundle-collection__selected-copy strong,.bundle-collection__selected-side strong {display:block;font-size:14px;color:var(--bundle-text)} .bundle-collection__selected-copy p {margin:4px 0 0;color:var(--bundle-muted);font-size:12px} .bundle-collection__selected-side {flex:0 0 auto;text-align:right} .bundle-collection__selected-remove {border:0;background:transparent;color:var(--bundle-accent);font-size:12px;font-weight:700;cursor:pointer;padding:0} .bundle-collection__selected-slot {display:none;align-items:center;justify-content:center;width:52px;height:52px;border-radius:14px;border:1px dashed var(--bundle-border);background:#fff;color:var(--bundle-muted);font-size:24px;font-weight:800} .bundle-collection__totals {display:grid;gap:12px;margin-bottom:16px} .bundle-collection__total-row {font-size:14px;color:var(--bundle-muted)} .bundle-collection__total-row strong {color:var(--bundle-text);font-size:15px} .bundle-collection__total-row--highlight {padding:14px 16px;border-radius:16px;background:#fff;border:1px solid var(--bundle-accent)} .bundle-collection__total-row--savings strong {color:var(--bundle-accent)} .bundle-collection__fineprint {margin:12px 0 0;text-align:center} .bundle-collection__empty {padding:28px;border-radius:8px;background:rgba(255,255,255,0.75);border:1px solid var(--bundle-border)} .bundle-collection__pagination {display:grid;gap:12px;justify-items:center;margin-top:22px;text-align:center} .bundle-collection__pagination-copy {margin:0;color:var(--bundle-muted);font-size:13px;line-height:1.5} .bundle-collection__pagination-link {display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 20px;border-radius:999px;border:1px solid var(--bundle-border);background:#fff;color:var(--bundle-text);font-size:14px;font-weight:700;text-decoration:none;transition:transform 0.2s ease,box-shadow 0.2s ease} .bundle-collection__pagination-link:disabled {opacity:0.7;cursor:progress;transform:none} .bundle-collection__pagination-link:hover {transform:translateY(-1px);box-shadow:0 10px 24px rgba(15,23,42,0.08)} .bundle-collection__modal[hidden] {display:none} .bundle-collection__modal {position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;padding:20px} .bundle-collection__modal-backdrop {position:absolute;inset:0;background:rgba(15,23,42,0.5)} .bundle-collection__modal-dialog {position:relative;width:min(100%,520px);max-height:calc(100vh - 40px);overflow:auto;background:#fff;border-radius:24px;padding:24px;box-shadow:0 30px 80px rgba(15,23,42,0.22)} .bundle-collection__modal-close {position:absolute;top:16px;right:16px;width:38px;height:38px;border-radius:999px;border:0;background:#f4f1eb;color:var(--bundle-text);font-size:24px;cursor:pointer} .bundle-collection__modal-options {display:grid;gap:18px;margin:18px 0 20px} .bundle-collection__modal-product {display:grid;grid-template-columns:108px minmax(0,1fr);gap:16px;align-items:center} .bundle-collection__modal-media {border-radius:18px;overflow:hidden;background:#f4efe8;aspect-ratio:1} .bundle-collection__modal-image {width:100%;height:100%;display:block;object-fit:cover} .bundle-collection__modal-copy {display:grid;gap:8px} .bundle-collection__modal-price {margin:0;color:var(--bundle-text);font-size:18px;font-weight:800} .bundle-collection__option-group {display:grid;gap:10px} .bundle-collection__option-title {margin:0;color:var(--bundle-muted);font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase} .bundle-collection__option-values {display:flex;flex-wrap:wrap;gap:10px} .bundle-collection__variant-chip {border:1px solid var(--bundle-border);border-radius:999px;background:#fff;color:var(--bundle-text);min-height:42px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer} .bundle-collection__variant-chip.is-selected {border-color:var(--bundle-accent);background:var(--bundle-accent-soft)} .bundle-collection__variant-chip[disabled] {opacity:0.45;cursor:not-allowed} @media (max-width:1024px) {.bundle-collection {padding-bottom:140px} .bundle-collection__shell {grid-template-columns:1fr} .bundle-collection__summary {position:fixed;left:10px;right:10px;bottom:10px;top:auto;z-index:30;margin:0} .bundle-collection__summary-card {display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,190px);gap:10px 12px;align-items:center;max-width:680px;margin-left:auto;margin-right:auto;padding:12px 14px;border-radius:16px;box-shadow:0 10px 24px rgba(17,24,39,0.12)} .bundle-collection__summary-title,.bundle-collection__summary-copy,.bundle-collection__offers,.bundle-collection__progress,.bundle-collection__fineprint,.bundle-collection__total-row:nth-child(2),.bundle-collection__total-row:nth-child(3) {display:none} .bundle-collection__status {grid-column:1 / -1;margin:0;padding:0;border:0;background:transparent;color:var(--bundle-text);font-size:12px;line-height:1.3} .bundle-collection__selected {margin:0;min-width:0} .bundle-collection__selected-track {display:flex;align-items:center;gap:8px;min-width:0;justify-content:center} .bundle-collection__selected-empty {width:100%;border-style:solid;font-size:12px;text-align:center;padding:10px 12px} .bundle-collection__selected-item {border:0;padding:0;background:transparent;gap:0;position:relative} .bundle-collection__selected-main {gap:0} .bundle-collection__selected-copy {display:none} .bundle-collection__selected-side {position:absolute;top:-6px;right:-6px;display:flex;align-items:center;justify-content:center;z-index:1} .bundle-collection__selected-side strong {display:none} .bundle-collection__selected-remove {display:inline-flex;align-items:center;justify-content:center;width:10px;height:10px;min-width:10px;padding:7px;border-radius:999px;border:0;background:rgba(17,24,39,0.9);color:transparent;cursor:pointer;box-shadow:0 4px 12px rgba(15,23,42,0.24);font-size:0} .bundle-collection__selected-remove::before {content:'x';color:#fff;font-size:14px;font-weight:700;line-height:1;position:absolute} .bundle-collection__selected-thumb,.bundle-collection__selected-slot {width:42px;height:42px;flex-basis:42px;border-radius:10px} .bundle-collection__selected-slot {display:flex;font-size:18px} .bundle-collection__totals {gap:4px;margin:0} .bundle-collection__total-row {font-size:12px} .bundle-collection__total-row strong {font-size:13px} .bundle-collection__total-row--highlight {padding:0;border:0;background:transparent;border-radius:0} .bundle-collection__cta {grid-column:2;min-height:42px;border-radius:12px;font-size:13px;padding:10px 14px}} @media (max-width:768px) {.bundle-collection {padding-top:24px;padding-bottom:132px;padding-left:0;padding-right:0} .bundle-collection__title {font-size:24px} .bundle-collection__shell {gap:18px} .bundle-collection__grid {grid-template-columns:repeat(2,minmax(0,1fr))} .bundle-collection__summary-card {grid-template-columns:1fr;max-width:none} .bundle-collection__totals,.bundle-collection__cta {grid-column:auto} .bundle-collection__summary-card {gap:10px;padding:12px;border-radius:16px;box-shadow:0 18px 42px rgba(17,24,39,0.18)} .bundle-collection__status {font-size:12px} .bundle-collection__selected-track {gap:6px;overflow-x:auto;padding-bottom:2px;padding:top:6px} .bundle-collection__selected-thumb,.bundle-collection__selected-slot {width:40px;height:40px;flex-basis:40px} .bundle-collection__totals {gap:6px} .bundle-collection__total-row {font-size:12px} .bundle-collection__total-row strong {font-size:14px} .bundle-collection__cta {min-height:40px} .bundle-collection__modal-product {grid-template-columns:1fr} .bundle-collection__modal-media {max-width:180px}}</style>
+  <style>.bundle-collection {--bundle-bg:{{ block.settings.background_color }};--bundle-card:{{ block.settings.card_color }};--bundle-text:{{ block.settings.text_color }};--bundle-muted:{{ block.settings.muted_text_color }};--bundle-accent:{{ block.settings.accent_color }};--bundle-accent-soft:{{ block.settings.accent_soft_color }};--bundle-border:{{ block.settings.border_color }};--bundle-shadow:0 20px 60px rgba(17,24,39,0.08);background:transparent;color:var(--bundle-text);padding:36px 16px} .bundle-collection__card-badge {position:absolute;left:12px;bottom:12px;background:#0a8a16;color:#fff;border-radius:2px;padding:6px 10px;font-size:12px;line-height:1;font-weight:500;text-transform:uppercase} .bundle-collection__card-media {position:relative;padding:0;background:#fff} .bundle-collection__shell {display:grid;grid-template-columns:minmax(0,1.6fr) minmax(320px,410px);gap:24px;align-items:start} .bundle-collection__header {margin-bottom:24px} .bundle-collection__header-media {margin:14px 0 0} .bundle-collection__header-image {display:block;width:100%;height:auto;border-radius:16px;object-fit:cover} .bundle-collection__eyebrow,.bundle-collection__modal-eyebrow {margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--bundle-accent)} .bundle-collection__title,.bundle-collection__summary-title,.bundle-collection__modal-title {margin:0;color:var(--bundle-text);line-height:1.08} .bundle-collection__title {font-size:32px;margin:0 0 6px} .bundle-collection__summary-title,.bundle-collection__modal-title {font-size:24px} .bundle-collection__summary-copy,.bundle-collection__fineprint {color:var(--bundle-muted);font-size:14px;line-height:1.5} .bundle-collection__summary-copy {margin:8px 0 0} .bundle-collection__offers {display:grid;gap:10px;margin:18px 0 14px} .bundle-collection__offer-option {display:flex;align-items:center;gap:10px;padding:7px 14px;border:1px solid var(--bundle-border);border-radius:14px;background:#fff;cursor:pointer;transition:border-color 0.2s ease,background 0.2s ease,box-shadow 0.2s ease} .bundle-collection__offer-option.is-active {border-color:var(--bundle-accent);background:var(--bundle-accent-soft);box-shadow:0 10px 24px rgba(15,118,110,0.08)} .bundle-collection__offer-option input {margin:0;accent-color:var(--bundle-accent);flex:0 0 auto} .bundle-collection__offer-option span {color:var(--bundle-text);font-size:14px;font-weight:700;line-height:1.4} .bundle-collection__grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px} .bundle-collection__card {background:var(--bundle-card);border:1px solid var(--bundle-border);border-radius:8px;overflow:hidden;transition:transform 0.2s ease,border-color 0.2s ease,box-shadow 0.2s ease} .bundle-collection__card.is-selected {transform:translateY(-3px);border-color:var(--bundle-accent);box-shadow:0 18px 40px rgba(15,118,110,0.12)} .bundle-collection__card-link {display:block;aspect-ratio:0.88 / 1;background:#fff} .bundle-collection__card-image,.bundle-collection__card-placeholder {width:100%;height:100%;display:block;object-fit:cover;object-position:top} .bundle-collection__card-placeholder {background:linear-gradient(135deg,#f6efe7,#ece3d7)} .bundle-collection__card-body {display:grid;gap:8px;padding:0} .bundle-collection__card-title {color:var(--bundle-text);text-decoration:none;font-size:14px;font-weight:500;line-height:1;padding:6px 2px 0px} .bundle-collection__card-price-row,.bundle-collection__total-row {display:flex;align-items:center;justify-content:space-between;gap:12px} .bundle-collection__card-price-row {justify-content:flex-start} .bundle-collection__card-price {font-size:16px;font-weight:500;padding:0px} .bundle-collection__card-compare {color:var(--bundle-muted);text-decoration:line-through;font-size:13px;font-weight:600} .bundle-collection__card-meta {margin:0;color:var(--bundle-muted);font-size:0px;display:none} .bundle-collection__card-toggle,.bundle-collection__cta,.bundle-collection__modal-submit {width:100%;min-height:48px;border:0;border-radius:999px;background:var(--bundle-text);color:#fff;font-size:14px;font-weight:800;cursor:pointer;transition:opacity 0.2s ease,transform 0.2s ease} .bundle-collection__card-toggle{border-top-right-radius:0;border-top-left-radius:0} .bundle-collection__card-toggle {min-height:40px;background:#040000;color:#fff;border:1px solid var(--bundle-border);border-radius:6px;display:block;width:100%;max-width:100%;border-top-right-radius:0;border-top-left-radius:0;text-transform:capitalize} .bundle-collection__card.is-selected .bundle-collection__card-toggle {background:var(--bundle-accent);border-color:var(--bundle-accent);color:#fff} .bundle-collection__cta[disabled],.bundle-collection__modal-submit[disabled] {opacity:0.45;cursor:not-allowed} .bundle-collection__summary {position:sticky;top:24px} .bundle-collection__summary-card {background:rgba(255,255,255,0.94);border:1px solid var(--bundle-border);border-radius:10px;padding:10px 12px;box-shadow:var(--bundle-shadow)} .bundle-collection__status {margin:6px 0 8px;padding:6px 14px;border-radius:10px;background:var(--bundle-accent-soft);border:1px solid var(--bundle-accent);font-size:13px;font-weight:700} .bundle-collection__progress {margin:0 0 16px;padding:10px 14px;border-radius:16px;background:#fff;border:1px solid var(--bundle-border)} .bundle-collection__progress-steps {display:grid;{% if show_offer_2_fixed and show_offer_3_fixed %} grid-template-columns:repeat(3,1fr);{% elsif show_offer_2_fixed %} grid-template-columns:repeat(2,1fr);{% else %} grid-template-columns:repeat(3,1fr);{% endif %} gap:10px;margin-bottom:8px} .bundle-collection__progress-steps span {display:flex;align-items:center;justify-content:center;min-height:38px;border-radius:999px;border:1px solid var(--bundle-border);background:#f8f5ef;color:var(--bundle-muted);font-size:13px;font-weight:800} .bundle-collection__progress-steps span.is-active {background:var(--bundle-accent);border-color:var(--bundle-accent);color:#fff} .bundle-collection__progress-text {margin:0;font-size:12px;color:var(--bundle-muted);text-align:center} .bundle-collection__selected {display:grid;gap:10px;margin-bottom:16px} .bundle-collection__selected-track {display:contents} .bundle-collection__selected-empty,.bundle-collection__selected-item {border-radius:16px;border:1px dashed var(--bundle-border);padding:10px 14px;background:rgba(255,255,255,0.76)} .bundle-collection__selected-item {display:flex;align-items:center;justify-content:space-between;gap:12px;border-style:solid} .bundle-collection__selected-main {display:flex;align-items:center;gap:12px;min-width:0} .bundle-collection__selected-thumb {flex:0 0 52px;width:52px;height:52px;border-radius:12px;object-fit:cover;background:#f4efe8;display:block} .bundle-collection__selected-copy {min-width:0} .bundle-collection__selected-copy strong,.bundle-collection__selected-side strong {display:block;font-size:14px;color:var(--bundle-text)} .bundle-collection__selected-copy p {margin:4px 0 0;color:var(--bundle-muted);font-size:12px} .bundle-collection__selected-side {flex:0 0 auto;text-align:right} .bundle-collection__selected-remove {border:0;background:transparent;color:var(--bundle-accent);font-size:12px;font-weight:700;cursor:pointer;padding:0} .bundle-collection__selected-slot {display:none;align-items:center;justify-content:center;width:52px;height:52px;border-radius:14px;border:1px dashed var(--bundle-border);background:#fff;color:var(--bundle-muted);font-size:24px;font-weight:800} .bundle-collection__totals {display:grid;gap:12px;margin-bottom:16px} .bundle-collection__total-row {font-size:14px;color:var(--bundle-muted)} .bundle-collection__total-row strong {color:var(--bundle-text);font-size:15px} .bundle-collection__total-row--highlight {padding:14px 16px;border-radius:16px;background:#fff;border:1px solid var(--bundle-accent)} .bundle-collection__total-row--savings strong {color:var(--bundle-accent)} .bundle-collection__fineprint {margin:12px 0 0;text-align:center} .bundle-collection__empty {padding:28px;border-radius:8px;background:rgba(255,255,255,0.75);border:1px solid var(--bundle-border)} .bundle-collection__pagination {display:grid;gap:12px;justify-items:center;margin-top:22px;text-align:center} .bundle-collection__pagination-copy {margin:0;color:var(--bundle-muted);font-size:13px;line-height:1.5} .bundle-collection__pagination-link {display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 20px;border-radius:999px;border:1px solid var(--bundle-border);background:#fff;color:var(--bundle-text);font-size:14px;font-weight:700;text-decoration:none;transition:transform 0.2s ease,box-shadow 0.2s ease} .bundle-collection__pagination-link:disabled {opacity:0.7;cursor:progress;transform:none} .bundle-collection__pagination-link:hover {transform:translateY(-1px);box-shadow:0 10px 24px rgba(15,23,42,0.08)} .bundle-collection__modal[hidden] {display:none} .bundle-collection__modal {position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;padding:20px} .bundle-collection__modal-backdrop {position:absolute;inset:0;background:rgba(15,23,42,0.5)} .bundle-collection__modal-dialog {position:relative;width:min(100%,520px);max-height:calc(100vh - 40px);overflow:auto;background:#fff;border-radius:24px;padding:24px;box-shadow:0 30px 80px rgba(15,23,42,0.22)} .bundle-collection__modal-close {position:absolute;top:16px;right:16px;width:38px;height:38px;border-radius:999px;border:0;background:#f4f1eb;color:var(--bundle-text);font-size:24px;cursor:pointer} .bundle-collection__modal-options {display:grid;gap:18px;margin:18px 0 20px} .bundle-collection__modal-product {display:grid;grid-template-columns:108px minmax(0,1fr);gap:16px;align-items:center} .bundle-collection__modal-media {border-radius:18px;overflow:hidden;background:#f4efe8;aspect-ratio:1} .bundle-collection__modal-image {width:100%;height:100%;display:block;object-fit:cover} .bundle-collection__modal-copy {display:grid;gap:8px} .bundle-collection__modal-price {margin:0;color:var(--bundle-text);font-size:18px;font-weight:800} .bundle-collection__option-group {display:grid;gap:10px} .bundle-collection__option-title {margin:0;color:var(--bundle-muted);font-size:12px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase} .bundle-collection__option-values {display:flex;flex-wrap:wrap;gap:10px} .bundle-collection__variant-chip {border:1px solid var(--bundle-border);border-radius:999px;background:#fff;color:var(--bundle-text);min-height:42px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer} .bundle-collection__variant-chip.is-selected {border-color:var(--bundle-accent);background:var(--bundle-accent-soft)} .bundle-collection__variant-chip[disabled] {opacity:0.45;cursor:not-allowed} @media (max-width:1024px) {.bundle-collection {padding-bottom:140px} .bundle-collection__shell {grid-template-columns:1fr} .bundle-collection__summary {position:fixed;left:10px;right:10px;bottom:10px;top:auto;z-index:30;margin:0} .bundle-collection__summary-card {display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,190px);gap:10px 12px;align-items:center;max-width:680px;margin-left:auto;margin-right:auto;padding:12px 14px;border-radius:16px;box-shadow:0 10px 24px rgba(17,24,39,0.12)} .bundle-collection__summary-title,.bundle-collection__summary-copy,.bundle-collection__offers,.bundle-collection__progress,.bundle-collection__fineprint,.bundle-collection__total-row:nth-child(2),.bundle-collection__total-row:nth-child(3) {display:none} .bundle-collection__status {grid-column:1 / -1;margin:0;padding:0;border:0;background:transparent;color:var(--bundle-text);font-size:12px;line-height:1.3} .bundle-collection__selected {margin:0;min-width:0} .bundle-collection__selected-track {display:flex;align-items:center;gap:8px;min-width:0;justify-content:center} .bundle-collection__selected-empty {width:100%;border-style:solid;font-size:12px;text-align:center;padding:10px 12px} .bundle-collection__selected-item {border:0;padding:0;background:transparent;gap:0;position:relative} .bundle-collection__selected-main {gap:0} .bundle-collection__selected-copy {display:none} .bundle-collection__selected-side {position:absolute;top:-6px;right:-6px;display:flex;align-items:center;justify-content:center;z-index:1} .bundle-collection__selected-side strong {display:none} .bundle-collection__selected-remove {display:inline-flex;align-items:center;justify-content:center;width:10px;height:10px;min-width:10px;padding:7px;border-radius:999px;border:0;background:rgba(17,24,39,0.9);color:transparent;cursor:pointer;box-shadow:0 4px 12px rgba(15,23,42,0.24);font-size:0} .bundle-collection__selected-remove::before {content:'x';color:#fff;font-size:14px;font-weight:700;line-height:1;position:absolute} .bundle-collection__selected-thumb,.bundle-collection__selected-slot {width:42px;height:42px;flex-basis:42px;border-radius:10px} .bundle-collection__selected-slot {display:flex;font-size:18px} .bundle-collection__totals {gap:4px;margin:0} .bundle-collection__total-row {font-size:12px} .bundle-collection__total-row strong {font-size:13px} .bundle-collection__total-row--highlight {padding:0;border:0;background:transparent;border-radius:0} .bundle-collection__cta {grid-column:2;min-height:42px;border-radius:12px;font-size:13px;padding:10px 14px}} @media (max-width:768px) {.bundle-collection {padding-top:24px;padding-bottom:132px;padding-left:0;padding-right:0} .bundle-collection__title {font-size:24px} .bundle-collection__shell {gap:18px} .bundle-collection__grid {grid-template-columns:repeat(2,minmax(0,1fr))} .bundle-collection__summary-card {grid-template-columns:1fr;max-width:none} .bundle-collection__totals,.bundle-collection__cta {grid-column:auto} .bundle-collection__summary-card {gap:10px;padding:12px;border-radius:16px;box-shadow:0 18px 42px rgba(17,24,39,0.18)} .bundle-collection__status {font-size:12px} .bundle-collection__selected-track {gap:6px;overflow-x:auto;padding-bottom:2px;padding-top:8px;} .bundle-collection__selected-thumb,.bundle-collection__selected-slot {width:40px;height:40px;flex-basis:40px} .bundle-collection__totals {gap:6px} .bundle-collection__total-row {font-size:12px} .bundle-collection__total-row strong {font-size:14px} 
+  
+  .bundle-collection__card-price-row {
+    justify-content: flex-start;
+    padding: 2px 2px 0px;
+}
+.bundle-collection__card-price {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 0 2px;
+}
+.bundle-collection__card-title {
+
+    font-size: 13px;
+
+}
+  .bundle-collection__cta {min-height:40px} .bundle-collection__modal-product {grid-template-columns:1fr} .bundle-collection__modal-media {max-width:180px}}</style>
+
+  <style>
+    .bundle-collection__card-badge--sold-out {
+      background: #b42318;
+    }
+
+    .bundle-collection__card:has(.bundle-collection__card-badge--sold-out) {
+      opacity: 0.72;
+    }
+
+    .bundle-collection__card-toggle[aria-disabled="true"] {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    @media (min-width: 1025px) {
+      .bundle-collection__summary-card {
+        max-height: calc(100dvh - 48px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+
+      .bundle-collection__cta {
+        position: sticky;
+        bottom: 0;
+        z-index: 1;
+        box-shadow: 0 -10px 18px rgba(255, 255, 255, 0.94);
+      }
+    }
+  </style>
 
   <script>
     (() => {
@@ -370,24 +332,21 @@
       const shopifyCheckoutLabel = section.dataset.shopifyCheckoutLabel || 'Checkout securely';
       const customCheckoutScriptTemplate = section.dataset.customCheckoutScript || '';
       const customCheckoutLabel = section.dataset.checkoutLabel || 'Custom checkout';
-      const defaultOfferKey = section.dataset.defaultOffer || 'offer_3_fixed';
+      const onePerVariant = section.dataset.onePerVariant === 'true';
+      const bundleTiersValue = section.dataset.bundleTiers || '[]';
       const shopRoot = section.dataset.shopRoot || '/';
       const shopUrl = section.dataset.shopUrl || window.location.origin;
       const currencyCode = section.dataset.currencyCode || 'USD';
 
       let cards = Array.from(section.querySelectorAll('[data-bundle-card]'));
-      const offerInputs = Array.from(section.querySelectorAll('[data-offer-input]'));
       const grid = section.querySelector('.bundle-collection__grid');
+      const offerOptions = section.querySelector('[data-offer-options]');
       const paginationCopy = section.querySelector('.bundle-collection__pagination-copy');
       const loadMoreButton = section.querySelector('[data-load-more]');
       const regularTotalEl = section.querySelector('[data-regular-total]');
-      const bundleDiscountEl = section.querySelector('[data-bundle-discount]');
-      const bundleTotalEl = section.querySelector('[data-bundle-total]');
-      const savingsEl = section.querySelector('[data-bundle-savings]');
       const submitButton = section.querySelector('[data-bundle-submit]');
       const selectedList = section.querySelector('[data-selected-list]');
       const progressText = section.querySelector('[data-progress-text]');
-      const progressSteps = Array.from(section.querySelectorAll('[data-progress-step]'));
       const bundleStatus = section.querySelector('[data-bundle-status]');
       const modal = section.querySelector('[data-variant-modal]');
       const modalTitle = section.querySelector('[data-modal-product-title]');
@@ -396,7 +355,6 @@
       const modalOptions = section.querySelector('[data-modal-options]');
       const modalSubmit = section.querySelector('[data-modal-submit]');
       const modalCloseButtons = Array.from(section.querySelectorAll('[data-modal-close]'));
-      const offersJson = section.querySelector('[data-bundle-offers]');
 
       const selectedItems = [];
       let modalContext = null;
@@ -404,8 +362,7 @@
       let modalOptionNames = [];
       let modalSelection = {};
       let pendingVariant = null;
-      let bundleOffers = [];
-      let currentOffer = null;
+      let bundleTiers = [];
       const totalProducts = Number(section.dataset.totalProducts || cards.length);
 
       const formatMoney = (amountInCents) => {
@@ -419,58 +376,48 @@
       const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, (character) => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
       })[character]);
-      const parseOffers = () => {
-        try {
-          bundleOffers = JSON.parse(offersJson?.textContent || '[]');
-        } catch (error) {
-          bundleOffers = [];
-        }
-      };
-
-      const getRequiredBundleCount = () => Number(currentOffer?.quantity || 3);
-      const getBundleLimit = () => getRequiredBundleCount();
-
-      const getOfferLabel = (offer) => {
-        if (!offer) return '';
-        if (offer.type === 'fixed') {
-          return 'Purchase ' + offer.quantity + ' items @ ' + formatMoney(offer.fixedPrice);
-        }
-
-        return 'Purchase ' + offer.quantity + ' items get ' + offer.percentDiscount + '% off';
-      };
-
-      const getBundleDiscount = (regularTotal) => {
-        const requiredBundleCount = getRequiredBundleCount();
-
-        if (selectedItems.length !== requiredBundleCount || !currentOffer) return 0;
-
-        if (currentOffer.type === 'fixed') {
-          return Math.max(regularTotal - Number(currentOffer.fixedPrice || 0), 0);
-        }
-
-        return Math.round((regularTotal * Number(currentOffer.percentDiscount || 0)) / 100);
-      };
-
-      const getBundlePrice = (regularTotal) => {
-        const requiredBundleCount = getRequiredBundleCount();
-        if (selectedItems.length !== requiredBundleCount || !currentOffer) return regularTotal;
-
-        if (currentOffer.type === 'fixed') {
-          return Number(currentOffer.fixedPrice || 0);
-        }
-
-        return regularTotal - getBundleDiscount(regularTotal);
-      };
-
       const getCheckoutButtonLabel = () => {
-        const requiredBundleCount = getRequiredBundleCount();
+        return selectedItems.length
+          ? (checkoutMode === 'custom' ? customCheckoutLabel : shopifyCheckoutLabel)
+          : 'Select products';
+      };
 
-        if (selectedItems.length < requiredBundleCount) {
-          const remaining = requiredBundleCount - selectedItems.length;
-          return 'Select ' + remaining + ' more';
+      const parseBundleTiers = () => {
+        try {
+          const tiers = JSON.parse(bundleTiersValue);
+          bundleTiers = (Array.isArray(tiers) ? tiers : [])
+            .filter((tier) => tier && tier.enabled !== false)
+            .map((tier) => ({
+              quantity: Number(tier.quantity),
+              discountType: tier.discountType === 'fixed_price' ? 'fixed_price' : 'percentage',
+              value: Number(tier.value)
+            }))
+            .filter((tier) => Number.isInteger(tier.quantity) && tier.quantity >= 2 && tier.value > 0)
+            .sort((left, right) => left.quantity - right.quantity);
+        } catch (error) {
+          bundleTiers = [];
         }
+      };
 
-        return checkoutMode === 'custom' ? customCheckoutLabel : shopifyCheckoutLabel;
+      const getTierLabel = (tier) => tier.discountType === 'fixed_price'
+        ? 'Buy ' + tier.quantity + ' for ' + formatMoney(tier.value * 100)
+        : 'Buy ' + tier.quantity + ' & save ' + tier.value + '%';
+
+      const getQualifiedTier = () => bundleTiers
+        .filter((tier) => selectedItems.length >= tier.quantity)
+        .at(-1) || null;
+
+      const getBundleLimit = () => bundleTiers.length
+        ? Math.max(...bundleTiers.map((tier) => tier.quantity))
+        : Infinity;
+
+      const renderOfferOptions = () => {
+        if (!offerOptions) return;
+        offerOptions.innerHTML = bundleTiers.map((tier) => {
+          const isQualified = selectedItems.length >= tier.quantity;
+          return '<div class="bundle-collection__offer-option' + (isQualified ? ' is-active' : '') + '"><span>'
+            + escapeHtml(getTierLabel(tier)) + '</span></div>';
+        }).join('');
       };
 
       const getProductSelectedCount = (productId) => {
@@ -490,20 +437,6 @@
         loadMoreButton.disabled = false;
         loadMoreButton.textContent = 'Load more products';
       };
-
-      const syncOfferOptions = () => {
-        offerInputs.forEach((input) => {
-          const option = input.closest('.bundle-collection__offer-option');
-          const isActive = input.value === currentOffer?.key;
-          input.checked = isActive;
-          option?.classList.toggle('is-active', isActive);
-        });
-      };
-
-      const getActiveOfferChoices = () => bundleOffers.filter((offer) => {
-        const input = offerInputs.find((node) => node.value === offer.key);
-        return Boolean(input);
-      });
 
       const getVariantDisplayTitle = (variant) => {
         const parts = [variant.option1, variant.option2, variant.option3].filter(Boolean);
@@ -603,10 +536,13 @@
 
         toggle.dataset.bound = 'true';
         toggle.addEventListener('click', () => {
-          const bundleLimit = getBundleLimit();
+          if (card.dataset.productAvailable !== 'true') {
+            progressText.textContent = 'This product is currently out of stock.';
+            return;
+          }
 
-          if (selectedItems.length >= bundleLimit) {
-            progressText.textContent = 'You can only add ' + bundleLimit + ' products for this offer.';
+          if (selectedItems.length >= getBundleLimit()) {
+            progressText.textContent = 'This bundle already has the maximum of ' + getBundleLimit() + ' items.';
             return;
           }
 
@@ -627,25 +563,34 @@
       };
 
       const syncCards = () => {
-        const bundleLimit = getBundleLimit();
-
         cards.forEach((card) => {
           const productId = Number(card.dataset.productId);
           const toggle = card.querySelector('[data-card-toggle]');
           const hasVariants = card.dataset.hasMultipleVariants === 'true';
+          const isAvailable = card.dataset.productAvailable === 'true';
           const selectedCount = getProductSelectedCount(productId);
 
           if (!toggle) return;
 
           card.classList.toggle('is-selected', selectedCount > 0);
           toggle.setAttribute('aria-pressed', selectedCount > 0 ? 'true' : 'false');
-
-          if (selectedItems.length >= bundleLimit) {
+          if (!isAvailable) {
+            toggle.textContent = 'Out of stock';
+            toggle.disabled = true;
+            toggle.setAttribute('aria-disabled', 'true');
+            return;
+          }
+          if (selectedItems.length >= getBundleLimit()) {
             toggle.textContent = 'Bundle full';
+            toggle.disabled = true;
+            toggle.setAttribute('aria-disabled', 'true');
+            return;
+          }
+          if (onePerVariant && !hasVariants && selectedCount > 0) {
+            toggle.textContent = 'Already added';
             toggle.disabled = true;
             return;
           }
-
           toggle.disabled = false;
           if (hasVariants) {
             toggle.textContent = selectedCount > 0 ? '+ Add one more' : 'Choose options';
@@ -661,7 +606,6 @@
           return;
         }
 
-        const remainingCount = Math.max(getRequiredBundleCount() - selectedItems.length, 0);
         const itemsMarkup = selectedItems.map((item) => `
           <div class="bundle-collection__selected-item">
             <div class="bundle-collection__selected-main">
@@ -678,51 +622,44 @@
           </div>
         `).join('');
 
-        const slotMarkup = remainingCount
-          ? `<div class="bundle-collection__selected-slot" aria-hidden="true">${remainingCount}</div>`
-          : '';
-
         selectedList.innerHTML = `
           <div class="bundle-collection__selected-track">
             ${itemsMarkup}
-            ${slotMarkup}
           </div>
         `;
       };
 
       const updateSummary = () => {
-        const requiredBundleCount = getRequiredBundleCount();
         const regularTotal = selectedItems.reduce((sum, item) => sum + item.price, 0);
-        const discountValue = getBundleDiscount(regularTotal);
-        const bundlePrice = getBundlePrice(regularTotal);
+        const qualifiedTier = getQualifiedTier();
 
         regularTotalEl.textContent = formatMoney(regularTotal);
-        bundleDiscountEl.textContent = '-' + formatMoney(discountValue);
-        bundleTotalEl.textContent = formatMoney(bundlePrice);
-        savingsEl.textContent = formatMoney(discountValue);
-
-        progressSteps.forEach((step, index) => {
-          const stepNumber = index + 1;
-          step.hidden = stepNumber > requiredBundleCount;
-          step.classList.toggle('is-active', index < selectedItems.length && stepNumber <= requiredBundleCount);
-        });
-
-        if (selectedItems.length < requiredBundleCount) {
-          const remaining = requiredBundleCount - selectedItems.length;
-          progressText.textContent = 'Add ' + remaining + ' more product' + (remaining === 1 ? '' : 's') + ' to unlock ' + getOfferLabel(currentOffer) + '.';
-          bundleStatus.textContent = selectedItems.length + '/' + requiredBundleCount + ' selected - ' + getOfferLabel(currentOffer);
+        if (selectedItems.length) {
+          const tierMessage = qualifiedTier
+            ? getTierLabel(qualifiedTier) + ' selected. Shopify calculates the final discount in cart.'
+            : 'Add more items to qualify for one of your configured offers.';
+          progressText.textContent = selectedItems.length + ' item' + (selectedItems.length === 1 ? '' : 's') + ' selected. ' + tierMessage;
+          bundleStatus.textContent = selectedItems.length + ' item' + (selectedItems.length === 1 ? '' : 's') + ' selected.';
         } else {
-          progressText.textContent = getOfferLabel(currentOffer) + ' unlocked. Add this bundle to cart.';
-          bundleStatus.textContent = 'Offer unlocked - ' + getOfferLabel(currentOffer);
+          progressText.textContent = 'Select products and quantities to add them to your bundle.';
+          bundleStatus.textContent = 'Select the products and quantities you want in your bundle.';
         }
 
-        submitButton.disabled = selectedItems.length !== requiredBundleCount;
+        submitButton.disabled = selectedItems.length === 0;
         submitButton.textContent = getCheckoutButtonLabel();
-        syncOfferOptions();
+        renderOfferOptions();
       };
 
       const commitSelection = (item) => {
-        if (selectedItems.length >= getBundleLimit()) return;
+        if (selectedItems.length >= getBundleLimit()) {
+          progressText.textContent = 'This bundle already has the maximum of ' + getBundleLimit() + ' items.';
+          return;
+        }
+
+        if (onePerVariant && selectedItems.some((selectedItem) => selectedItem.variantId === item.variantId)) {
+          progressText.textContent = 'Only one of each variant can be added to this bundle.';
+          return;
+        }
 
         selectedItems.push({
           ...item,
@@ -846,7 +783,6 @@
       };
 
       const applyTemplateTokens = (template, bundlePrice, regularTotal) => {
-        const requiredBundleCount = getRequiredBundleCount();
         const variantIds = selectedItems.map((item) => item.variantId).join(',');
         const replacements = {
           '{{shop_url}}': shopUrl,
@@ -855,8 +791,8 @@
           '{{cart_url}}': shopRoot + 'cart',
           '{{bundle_total}}': String(bundlePrice / 100),
           '{{regular_total}}': String(regularTotal / 100),
-          '{{discount_percent}}': String(Number(currentOffer?.percentDiscount || 0)),
-          '{{bundle_size}}': String(requiredBundleCount),
+          '{{discount_percent}}': '0',
+          '{{bundle_size}}': String(selectedItems.length),
           '{{variant_ids}}': variantIds
         };
 
@@ -890,11 +826,11 @@
           cartUrl: shopRoot + 'cart',
           bundleTotal: bundlePrice / 100,
           regularTotal: regularTotal / 100,
-          discountPercent: Number(currentOffer?.percentDiscount || 0),
-          bundleSize: getRequiredBundleCount(),
+          discountPercent: 0,
+          bundleSize: selectedItems.length,
           variantIds: selectedItems.map((item) => item.variantId),
           selectedItems: selectedItems.map((item) => ({ ...item })),
-          currentOffer: currentOffer ? { ...currentOffer } : null
+          currentOffer: null
         };
 
         window.discountBundleCheckout = payload;
@@ -959,26 +895,8 @@
         updateSummary();
       });
 
-      offerInputs.forEach((input) => {
-        input.addEventListener('change', () => {
-          const nextOffer = bundleOffers.find((offer) => offer.key === input.value);
-          if (!nextOffer) return;
-
-          currentOffer = nextOffer;
-
-          if (selectedItems.length > getRequiredBundleCount()) {
-            selectedItems.splice(getRequiredBundleCount());
-          }
-
-          syncCards();
-          renderSelected();
-          updateSummary();
-        });
-      });
-
       submitButton.addEventListener('click', async () => {
-        const requiredBundleCount = getRequiredBundleCount();
-        if (selectedItems.length !== requiredBundleCount) return;
+        if (!selectedItems.length) return;
 
         submitButton.disabled = true;
         submitButton.textContent = 'Loading...';
@@ -991,14 +909,15 @@
               Accept: 'application/json'
             },
             body: JSON.stringify({
-              items: selectedItems.map((item) => ({
+              items: Array.from(selectedItems.reduce((lines, item) => {
+                const line = lines.get(item.variantId) || { ...item, quantity: 0 };
+                line.quantity += 1;
+                lines.set(item.variantId, line);
+                return lines;
+              }, new Map()).values()).map((item) => ({
                 id: item.variantId,
-                quantity: 1,
+                quantity: item.quantity,
                 properties: {
-                  _bundle_offer: getOfferLabel(currentOffer),
-                  _bundle_discount: currentOffer?.type === 'fixed'
-                    ? 'Fixed price ' + formatMoney(currentOffer.fixedPrice)
-                    : Number(currentOffer?.percentDiscount || 0) + '% off',
                   _bundle_source: 'discount-bundle-app'
                 }
               }))
@@ -1010,7 +929,7 @@
           }
 
           const regularTotal = selectedItems.reduce((sum, item) => sum + item.price, 0);
-          const bundlePrice = getBundlePrice(regularTotal);
+          const bundlePrice = regularTotal;
 
           resetSelection();
 
@@ -1027,18 +946,7 @@
         }
       });
 
-      parseOffers();
-      currentOffer = getActiveOfferChoices().find((offer) => offer.key === defaultOfferKey)
-        || getActiveOfferChoices()[0]
-        || bundleOffers[0]
-        || {
-        key: 'offer_3_fixed',
-        quantity: 3,
-        type: 'fixed',
-        fixedPrice: 99900,
-        percentDiscount: 0
-      };
-
+      parseBundleTiers();
       renderSelected();
       syncCards();
       updateSummary();
@@ -1069,46 +977,30 @@
       "default": "Your bundle"
     },
     {
-      "type": "select",
-      "id": "default_offer",
-      "label": "Default offer",
-      "default": "offer_3_fixed",
-      "options": [
-        { "value": "offer_3_fixed", "label": "3-item fixed price" },
-        { "value": "offer_2_fixed", "label": "2-item fixed price" },
-        { "value": "offer_3_percent", "label": "3-item percentage off" },
-        { "value": "offer_2_percent", "label": "2-item percentage off" }
-      ]
-    },
-    {
       "type": "checkbox",
-      "id": "show_offer_3_fixed",
-      "label": "Show 3-item fixed price",
-      "default": true
+      "id": "one_per_variant",
+      "label": "Allow only one of each variant",
+      "default": false,
+      "info": "When disabled, shoppers can add any quantity of the same variant. Bundle quantities and discounts are configured in the Discount Bundle app."
     },
-    {
-      "type": "number",
-      "id": "offer_3_fixed_price",
-      "label": "3-item fixed price",
-      "default": 999
-    },
-    {
-      "type": "checkbox",
-      "id": "show_offer_2_fixed",
-      "label": "Show 2-item fixed price",
-      "default": true
-    },
-    {
-      "type": "number",
-      "id": "offer_2_fixed_price",
-      "label": "2-item fixed price",
-      "default": 799
-    },
-    { "type": "checkbox", "id": "show_offer_3_percent", "label": "Show 3-item percentage offer", "default": false },
-    { "type": "number", "id": "offer_3_percent_discount", "label": "3-item percentage off", "default": 25 },
-    { "type": "checkbox", "id": "show_offer_2_percent", "label": "Show 2-item percentage offer", "default": false },
-    { "type": "number", "id": "offer_2_percent_discount", "label": "2-item percentage off", "default": 10 },
-    
+    { "type": "header", "content": "Bundle offers" },
+    { "type": "paragraph", "content": "Set these to the same quantities and discounts created in Discount Bundle. Enable the offers you want shoppers to see." },
+    { "type": "checkbox", "id": "bundle_offer_1_enabled", "label": "Enable offer 1", "default": true },
+    { "type": "range", "id": "bundle_offer_1_quantity", "label": "Offer 1: number of items", "min": 2, "max": 50, "step": 1, "default": 2 },
+    { "type": "select", "id": "bundle_offer_1_type", "label": "Offer 1: discount type", "default": "percentage", "options": [{ "value": "percentage", "label": "Percentage off" }, { "value": "fixed_price", "label": "Fixed total bundle price" }] },
+    { "type": "number", "id": "bundle_offer_1_value", "label": "Offer 1: percentage or fixed price", "default": 10 },
+    { "type": "checkbox", "id": "bundle_offer_2_enabled", "label": "Enable offer 2", "default": true },
+    { "type": "range", "id": "bundle_offer_2_quantity", "label": "Offer 2: number of items", "min": 2, "max": 50, "step": 1, "default": 3 },
+    { "type": "select", "id": "bundle_offer_2_type", "label": "Offer 2: discount type", "default": "percentage", "options": [{ "value": "percentage", "label": "Percentage off" }, { "value": "fixed_price", "label": "Fixed total bundle price" }] },
+    { "type": "number", "id": "bundle_offer_2_value", "label": "Offer 2: percentage or fixed price", "default": 15 },
+    { "type": "checkbox", "id": "bundle_offer_3_enabled", "label": "Enable offer 3", "default": false },
+    { "type": "range", "id": "bundle_offer_3_quantity", "label": "Offer 3: number of items", "min": 2, "max": 50, "step": 1, "default": 4 },
+    { "type": "select", "id": "bundle_offer_3_type", "label": "Offer 3: discount type", "default": "percentage", "options": [{ "value": "percentage", "label": "Percentage off" }, { "value": "fixed_price", "label": "Fixed total bundle price" }] },
+    { "type": "number", "id": "bundle_offer_3_value", "label": "Offer 3: percentage or fixed price", "default": 20 },
+    { "type": "checkbox", "id": "bundle_offer_4_enabled", "label": "Enable offer 4", "default": false },
+    { "type": "range", "id": "bundle_offer_4_quantity", "label": "Offer 4: number of items", "min": 2, "max": 50, "step": 1, "default": 5 },
+    { "type": "select", "id": "bundle_offer_4_type", "label": "Offer 4: discount type", "default": "percentage", "options": [{ "value": "percentage", "label": "Percentage off" }, { "value": "fixed_price", "label": "Fixed total bundle price" }] },
+    { "type": "number", "id": "bundle_offer_4_value", "label": "Offer 4: percentage or fixed price", "default": 25 },
     {
       "type": "select",
       "id": "checkout_mode",

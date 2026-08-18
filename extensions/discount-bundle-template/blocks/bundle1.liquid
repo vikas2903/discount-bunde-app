@@ -1,11 +1,27 @@
 {%- liquid
   assign bundle_collection = block.settings.bundle_collection
-  assign bundle_size = block.settings.bundle_size | default: 3
-  assign checkout_mode = block.settings.checkout_mode | default: 'shopify'
-  assign fixed_bundle_price = block.settings.fixed_bundle_price | times: 100
-  assign offer_type = block.settings.offer_type | default: 'percentage'
-  assign custom_checkout_code = block.settings.custom_checkout_code | default: ''
-  assign custom_checkout_url = block.settings.custom_checkout_url | default: ''
+  capture bundle_tiers
+    echo '['
+    for offer_index in (1..4)
+      assign offer_enabled_key = 'bundle_offer_' | append: offer_index | append: '_enabled'
+      assign offer_quantity_key = 'bundle_offer_' | append: offer_index | append: '_quantity'
+      assign offer_type_key = 'bundle_offer_' | append: offer_index | append: '_type'
+      assign offer_value_key = 'bundle_offer_' | append: offer_index | append: '_value'
+      echo '{"enabled":'
+      echo block.settings[offer_enabled_key] | json
+      echo ',"quantity":'
+      echo block.settings[offer_quantity_key] | json
+      echo ',"discountType":'
+      echo block.settings[offer_type_key] | json
+      echo ',"value":'
+      echo block.settings[offer_value_key] | json
+      echo '}'
+      unless forloop.last
+        echo ','
+      endunless
+    endfor
+    echo ']'
+  endcapture
 -%}
 
 {%- if bundle_collection != blank -%}
@@ -13,13 +29,8 @@
     id="discount-bundle-{{ block.id }}"
     class="discount-bundle"
     data-bundle-section
-    data-bundle-size="{{ bundle_size }}"
-    data-offer-type="{{ offer_type }}"
-    data-fixed-price="{{ fixed_bundle_price }}"
-    data-percent-off="{{ block.settings.percent_off }}"
-    data-checkout-mode="{{ checkout_mode }}"
-    data-custom-url="{{ custom_checkout_url | escape }}"
-    data-custom-code="{{ custom_checkout_code | json | escape }}"
+    data-bundle-tiers="{{ bundle_tiers | strip_newlines | escape }}"
+    data-one-per-variant="{{ block.settings.one_per_variant }}"
     data-shop-root="{{ routes.root_url }}"
     style="--db-background: #f7f6f2; --db-card: #ffffff; --db-text: #17221e; --db-muted: #65706a; --db-accent: #176b4d; --db-accent-soft: #ddf1e8; --db-border: #dbe3dd;"
     {{ block.shopify_attributes }}
@@ -34,10 +45,8 @@
             <strong>
               {%- if block.settings.offer_message != blank -%}
                 {{ block.settings.offer_message }}
-              {%- elsif offer_type == 'fixed' -%}
-                Choose {{ bundle_size }} items for {{ fixed_bundle_price | money_without_trailing_zeros }}
               {%- else -%}
-                Choose {{ bundle_size }} items and save {{ block.settings.percent_off }}%
+                Configure your bundle offers in the app block settings.
               {%- endif -%}
             </strong>
           </div>
@@ -49,9 +58,9 @@
           <div class="discount-bundle__section-heading">
             <div>
               <p class="discount-bundle__kicker">{{ bundle_collection.title }}</p>
-              <h3>Choose any {{ bundle_size }} products</h3>
+              <h3>Choose your bundle products</h3>
             </div>
-            <span class="discount-bundle__counter" data-counter>0 / {{ bundle_size }}</span>
+            <span class="discount-bundle__counter" data-counter>0 selected</span>
           </div>
           <div class="discount-bundle__grid" data-product-grid>
             {%- for product in bundle_collection.products limit: block.settings.product_limit -%}
@@ -63,6 +72,9 @@
                   data-product-id="{{ product.id }}"
                   data-title="{{ product.title | escape }}"
                   data-image="{{ product.featured_image | image_url: width: 700 }}"
+                  data-product-available="{{ product.available }}"
+                  data-has-multiple-variants="{% if product.variants.size > 1 %}true{% else %}false{% endif %}"
+                  data-has-single-variant="{% if product.variants.size == 1 %}true{% else %}false{% endif %}"
                 >
                   <div class="discount-bundle__image-wrap">
                     {%- if product.featured_image != blank -%}
@@ -71,12 +83,13 @@
                       {{ 'product-1' | placeholder_svg_tag: 'discount-bundle__image discount-bundle__placeholder' }}
                     {%- endif -%}
                     {%- if product.variants.size > 1 -%}<span class="discount-bundle__variant-count">{{ product.variants.size }} options</span>{%- endif -%}
+                    {%- unless product.available -%}<span class="discount-bundle__sold-out">Out of stock</span>{%- endunless -%}
                   </div>
                   <div class="discount-bundle__card-content">
                     <h4>{{ product.title }}</h4>
                     <p>{{ available_variant.price | money }}</p>
-                    <button class="discount-bundle__add" type="button" data-add-product>
-                      {%- if product.variants.size > 1 -%}Choose options{%- else -%}Add to bundle{%- endif -%}
+                    <button class="discount-bundle__add" type="button" data-add-product {% unless product.available %}disabled aria-disabled="true"{% endunless %}>
+                      {%- if product.available == false -%}Out of stock{%- elsif product.variants.size > 1 -%}Choose options{%- else -%}Add to bundle{%- endif -%}
                     </button>
                   </div>
                   <script type="application/json" data-variants>{{ product.variants | json }}</script>
@@ -92,22 +105,18 @@
               <p class="discount-bundle__kicker">Your selection</p>
               <h3>{{ block.settings.summary_heading | default: 'Your bundle' }}</h3>
             </div>
-            <span class="discount-bundle__progress" data-progress>0/{{ bundle_size }}</span>
+            <span class="discount-bundle__progress" data-progress>0 selected</span>
           </div>
-          <p class="discount-bundle__summary-note" data-progress-copy>Select {{ bundle_size }} items to unlock this offer.</p>
+          <p class="discount-bundle__summary-note" data-progress-copy>Select products and quantities for your bundle.</p>
           <div class="discount-bundle__selected" data-selected-items></div>
           <div class="discount-bundle__price-box">
             <div><span>Items total</span><strong data-regular-total>{{ 0 | money }}</strong></div>
             <div class="discount-bundle__saving"><span>Bundle saving</span><strong data-saving>{{ 0 | money }}</strong></div>
             <div class="discount-bundle__bundle-total"><span>Bundle total</span><strong data-bundle-total>{{ 0 | money }}</strong></div>
           </div>
-          <div class="discount-bundle__discount-detail" data-discount-detail>
-            {%- if block.settings.discount_detail != blank -%}{{ block.settings.discount_detail }}{%- else -%}Your configured bundle offer is shown before checkout. Shopify calculates the final eligible discount securely in cart and checkout.{%- endif -%}
-          </div>
           <button type="button" class="discount-bundle__checkout" data-checkout disabled>
-            {%- if checkout_mode == 'custom' -%}{{ block.settings.custom_button_label | default: 'Continue to secure checkout' }}{%- else -%}{{ block.settings.shopify_button_label | default: 'Checkout securely' }}{%- endif -%}
+            {{ block.settings.shopify_button_label | default: 'Checkout securely' }}
           </button>
-          {%- if checkout_mode == 'custom' and block.settings.custom_checkout_note != blank -%}<p class="discount-bundle__provider-note">{{ block.settings.custom_checkout_note }}</p>{%- endif -%}
         </aside>
       </div>
     </div>
@@ -135,6 +144,31 @@
 
 <style>#discount-bundle-{{ block.id }} {background:var(--db-background);color:var(--db-text);padding:40px 20px 190px} #discount-bundle-{{ block.id }} * {box-sizing:border-box} #discount-bundle-{{ block.id }} .discount-bundle__shell {max-width:1280px;margin:0 auto} #discount-bundle-{{ block.id }} .discount-bundle__hero {padding:clamp(24px,5vw,56px);border:1px solid var(--db-border);border-radius:24px;background:var(--db-card)} #discount-bundle-{{ block.id }} .discount-bundle__hero-copy h2,#discount-bundle-{{ block.id }} h3,#discount-bundle-{{ block.id }} h4 {color:var(--db-text);margin:0} #discount-bundle-{{ block.id }} .discount-bundle__hero-copy h2 {font-size:clamp(30px,4vw,52px);line-height:1.04;letter-spacing:-.04em} #discount-bundle-{{ block.id }} .discount-bundle__eyebrow,#discount-bundle-{{ block.id }} .discount-bundle__kicker {margin:0 0 8px;color:var(--db-accent);font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase} #discount-bundle-{{ block.id }} .discount-bundle__offer {display:flex;align-items:center;gap:10px;margin-top:22px;flex-wrap:wrap} #discount-bundle-{{ block.id }} .discount-bundle__offer-badge {background:var(--db-accent-soft);border-radius:100px;color:var(--db-accent);font-size:12px;font-weight:800;padding:6px 10px} #discount-bundle-{{ block.id }} .discount-bundle__layout {display:block;margin-top:30px} #discount-bundle-{{ block.id }} .discount-bundle__section-heading,#discount-bundle-{{ block.id }} .discount-bundle__summary-heading {display:flex;align-items:start;justify-content:space-between;gap:16px;margin-bottom:18px} #discount-bundle-{{ block.id }} .discount-bundle__section-heading h3,#discount-bundle-{{ block.id }} .discount-bundle__summary-heading h3 {font-size:24px;letter-spacing:-.02em} #discount-bundle-{{ block.id }} .discount-bundle__counter,#discount-bundle-{{ block.id }} .discount-bundle__progress {white-space:nowrap;background:var(--db-accent-soft);color:var(--db-accent);border-radius:100px;padding:7px 10px;font-size:13px;font-weight:800} #discount-bundle-{{ block.id }} .discount-bundle__grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px} #discount-bundle-{{ block.id }} .discount-bundle__card {border:1px solid var(--db-border);border-radius:16px;overflow:hidden;background:var(--db-card);transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease} #discount-bundle-{{ block.id }} .discount-bundle__card:hover {transform:translateY(-3px);box-shadow:0 14px 28px rgba(0,0,0,.08)} #discount-bundle-{{ block.id }} .discount-bundle__card.is-selected {border-color:var(--db-accent);box-shadow:0 0 0 2px var(--db-accent-soft)} #discount-bundle-{{ block.id }} .discount-bundle__image-wrap {position:relative;aspect-ratio:1 / 1;background:#f5f5f5} #discount-bundle-{{ block.id }} .discount-bundle__image {width:100%;height:100%;object-fit:cover;display:block} #discount-bundle-{{ block.id }} .discount-bundle__variant-count {position:absolute;bottom:9px;left:9px;border-radius:100px;padding:5px 8px;background:rgba(255,255,255,.92);color:#202020;font-size:11px;font-weight:700} #discount-bundle-{{ block.id }} .discount-bundle__card-content {padding:14px} #discount-bundle-{{ block.id }} .discount-bundle__card h4 {font-size:15px;line-height:1.25;min-height:38px} #discount-bundle-{{ block.id }} .discount-bundle__card p {margin:8px 0 12px;font-weight:800;font-size:14px} #discount-bundle-{{ block.id }} .discount-bundle__add,#discount-bundle-{{ block.id }} .discount-bundle__checkout {width:100%;min-height:43px;border:0;border-radius:10px;cursor:pointer;font:inherit;font-weight:800;transition:opacity .2s ease,transform .2s ease} #discount-bundle-{{ block.id }} .discount-bundle__add {background:var(--db-accent-soft);color:var(--db-accent);font-size:13px} #discount-bundle-{{ block.id }} .discount-bundle__add:hover {transform:translateY(-1px)} #discount-bundle-{{ block.id }} .discount-bundle__summary {position:fixed;z-index:50;left:0;right:0;bottom:0;display:grid;grid-template-columns:minmax(260px,1fr) minmax(240px,auto) 275px;gap:24px;align-items:center;padding:16px max(24px,calc((100vw - 1280px) / 2));background:rgba(255,255,255,.98);border-top:1px solid var(--db-border);box-shadow:0 -8px 30px rgba(0,0,0,.09)} #discount-bundle-{{ block.id }} .discount-bundle__summary-heading {display:none} #discount-bundle-{{ block.id }} .discount-bundle__summary-note {position:absolute;right:max(24px,calc((100vw - 1280px) / 2));top:-30px;margin:0;font-size:13px;color:var(--db-muted)} #discount-bundle-{{ block.id }} .discount-bundle__provider-note,#discount-bundle-{{ block.id }} .discount-bundle__discount-detail {display:none} #discount-bundle-{{ block.id }} .discount-bundle__selected {display:flex;align-items:stretch;gap:12px;min-width:0;overflow-x:auto;padding:2px} #discount-bundle-{{ block.id }} .discount-bundle__empty {padding:15px;color:var(--db-muted);border:1px dashed var(--db-border);border-radius:10px;font-size:13px} #discount-bundle-{{ block.id }} .discount-bundle__selected-item {position:relative;display:grid;grid-template-columns:56px minmax(100px,1fr);gap:9px;min-width:185px;padding:6px;border:1px solid var(--db-border);border-radius:10px;background:var(--db-card)} #discount-bundle-{{ block.id }} .discount-bundle__selected-item img {width:56px;height:56px;object-fit:cover;border-radius:7px} #discount-bundle-{{ block.id }} .discount-bundle__selected-item strong,#discount-bundle-{{ block.id }} .discount-bundle__selected-item small {display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} #discount-bundle-{{ block.id }} .discount-bundle__selected-item strong {font-size:12px;padding-right:14px} #discount-bundle-{{ block.id }} .discount-bundle__selected-item small {color:var(--db-muted);margin-top:4px;font-size:11px} #discount-bundle-{{ block.id }} .discount-bundle__remove {position:absolute;top:-7px;right:-7px;width:18px;height:18px;border:0;border-radius:50%;background:#171717;color:#fff;cursor:pointer;padding:0;font-size:0} #discount-bundle-{{ block.id }} .discount-bundle__remove::after {content:'\00d7';font-size:15px;line-height:18px} #discount-bundle-{{ block.id }} .discount-bundle__price-box {display:grid;gap:5px;min-width:220px;margin:0;padding:0;border:0} #discount-bundle-{{ block.id }} .discount-bundle__price-box div {display:flex;justify-content:space-between;gap:12px;font-size:14px} #discount-bundle-{{ block.id }} .discount-bundle__price-box span {color:var(--db-muted)} #discount-bundle-{{ block.id }} .discount-bundle__saving strong {color:var(--db-accent)} #discount-bundle-{{ block.id }} .discount-bundle__bundle-total {font-size:17px !important} #discount-bundle-{{ block.id }} .discount-bundle__discount-detail {padding:11px;margin-bottom:14px;border-radius:9px;background:var(--db-accent-soft);color:var(--db-accent);font-size:12px;line-height:1.45} #discount-bundle-{{ block.id }} .discount-bundle__checkout {background:var(--db-accent);color:#fff;min-height:56px} #discount-bundle-{{ block.id }} .discount-bundle__checkout:disabled {cursor:not-allowed;opacity:.45} #discount-bundle-{{ block.id }} .discount-bundle__modal[hidden] {display:none} #discount-bundle-{{ block.id }} .discount-bundle__modal {position:fixed;z-index:1000;inset:0;display:grid;place-items:center;padding:20px} #discount-bundle-{{ block.id }} .discount-bundle__modal-backdrop {position:absolute;inset:0;background:rgba(8,12,20,.58)} #discount-bundle-{{ block.id }} .discount-bundle__modal-dialog {position:relative;z-index:1;display:grid;grid-template-columns:minmax(180px,.9fr) minmax(260px,1.1fr);width:min(680px,100%);max-height:min(720px,90vh);overflow:auto;background:var(--db-card);border-radius:18px;color:var(--db-text)} #discount-bundle-{{ block.id }} .discount-bundle__modal-image {width:100%;height:100%;min-height:280px;object-fit:cover;background:var(--db-background)} #discount-bundle-{{ block.id }} .discount-bundle__modal-copy {padding:28px} #discount-bundle-{{ block.id }} .discount-bundle__modal-copy h3 {font-size:25px;margin-bottom:18px} #discount-bundle-{{ block.id }} .discount-bundle__modal-close {position:absolute;top:10px;right:10px;z-index:2;width:35px;height:35px;border:0;border-radius:50%;background:rgba(255,255,255,.94);color:#111;cursor:pointer;font-size:25px;line-height:1} #discount-bundle-{{ block.id }} .discount-bundle__option {margin:14px 0} #discount-bundle-{{ block.id }} .discount-bundle__option label {display:block;margin-bottom:6px;font-size:13px;font-weight:800} #discount-bundle-{{ block.id }} .discount-bundle__option select {width:100%;min-height:42px;padding:8px;border:1px solid var(--db-border);border-radius:8px;background:var(--db-card);color:var(--db-text)} #discount-bundle-{{ block.id }} .discount-bundle__modal-price {margin:18px 0;font-size:18px;font-weight:800} #discount-bundle-{{ block.id }}.discount-bundle--empty {padding:20px;text-align:center} @media (max-width:900px) {#discount-bundle-{{ block.id }} {padding-bottom:230px} #discount-bundle-{{ block.id }} .discount-bundle__summary {grid-template-columns:1fr auto;gap:12px;padding:12px 16px} #discount-bundle-{{ block.id }} .discount-bundle__price-box {display:none} #discount-bundle-{{ block.id }} .discount-bundle__summary-note {right:16px}} @media (max-width:620px) {#discount-bundle-{{ block.id }} {padding-left:14px;padding-right:14px;padding-bottom:245px} #discount-bundle-{{ block.id }} .discount-bundle__hero {padding:22px;border-radius:16px} #discount-bundle-{{ block.id }} .discount-bundle__grid {grid-template-columns:repeat(2,minmax(0,1fr));gap:10px} #discount-bundle-{{ block.id }} .discount-bundle__card-content {padding:10px} #discount-bundle-{{ block.id }} .discount-bundle__card h4 {font-size:13px} #discount-bundle-{{ block.id }} .discount-bundle__summary {grid-template-columns:1fr;padding:10px 14px} #discount-bundle-{{ block.id }} .discount-bundle__selected-item {min-width:150px} #discount-bundle-{{ block.id }} .discount-bundle__summary-note {top:-27px;font-size:11px} #discount-bundle-{{ block.id }} .discount-bundle__checkout {min-height:46px} #discount-bundle-{{ block.id }} .discount-bundle__modal-dialog {grid-template-columns:1fr} #discount-bundle-{{ block.id }} .discount-bundle__modal-image {min-height:180px;max-height:260px}}</style>
 
+<style>
+  #discount-bundle-{{ block.id }} .discount-bundle__sold-out {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1;
+    border-radius: 999px;
+    background: #b42318;
+    color: #fff;
+    padding: 6px 9px;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  #discount-bundle-{{ block.id }} .discount-bundle__card:has(.discount-bundle__sold-out) {
+    opacity: .68;
+  }
+
+  #discount-bundle-{{ block.id }} .discount-bundle__add:disabled {
+    cursor: not-allowed;
+    opacity: .5;
+    transform: none;
+  }
+</style>
+
 <script>
   (() => {
     const section = document.getElementById('discount-bundle-{{ block.id }}');
@@ -143,15 +177,9 @@
 
     const moneyFormat = {{ cart.currency.symbol | default: shop.money_format | json }};
     const currency = {{ cart.currency.iso_code | default: shop.currency | json }};
-    const bundleSize = Number(section.dataset.bundleSize || 3);
-    const offerType = section.dataset.offerType;
-    const fixedPrice = Number(section.dataset.fixedPrice || 0);
-    const percentOff = Math.min(100, Math.max(0, Number(section.dataset.percentOff || 0)));
+    const onePerVariant = section.dataset.onePerVariant === 'true';
+    let bundleTiers = [];
     const shopRoot = section.dataset.shopRoot || '/';
-    const checkoutMode = section.dataset.checkoutMode || 'shopify';
-    const customUrl = section.dataset.customUrl || '';
-    let customCode = '';
-    try { customCode = JSON.parse(section.dataset.customCode || '""'); } catch (error) { customCode = ''; }
     const selected = [];
     let modalCard = null;
     let modalVariants = [];
@@ -178,10 +206,25 @@
     };
     const escapeHtml = (value) => String(value || '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;' })[character]);
     const getSubtotal = () => selected.reduce((total, item) => total + item.price, 0);
+    const parseBundleTiers = () => {
+      try {
+        bundleTiers = JSON.parse(section.dataset.bundleTiers || '[]')
+          .filter((tier) => tier && tier.enabled !== false)
+          .map((tier) => ({ quantity: Number(tier.quantity), discountType: tier.discountType === 'fixed_price' ? 'fixed_price' : 'percentage', value: Number(tier.value) }))
+          .filter((tier) => Number.isInteger(tier.quantity) && tier.quantity >= 2 && tier.value > 0)
+          .sort((left, right) => left.quantity - right.quantity);
+      } catch (error) { bundleTiers = []; }
+    };
+    const getBundleLimit = () => bundleTiers.length ? Math.max(...bundleTiers.map((tier) => tier.quantity)) : Infinity;
+    const getQualifiedTier = () => bundleTiers.filter((tier) => selected.length >= tier.quantity).at(-1) || null;
+    const getTierLabel = (tier) => tier.discountType === 'fixed_price'
+      ? 'Buy ' + tier.quantity + ' for ' + formatMoney(tier.value * 100)
+      : 'Buy ' + tier.quantity + ' and save ' + tier.value + '%';
     const getDiscount = () => {
-      if (selected.length !== bundleSize) return 0;
+      const tier = getQualifiedTier();
+      if (!tier) return 0;
       const subtotal = getSubtotal();
-      return offerType === 'fixed' ? Math.max(0, subtotal - fixedPrice) : Math.round(subtotal * percentOff / 100);
+      return tier.discountType === 'fixed_price' ? Math.max(0, subtotal - tier.value * 100) : Math.round(subtotal * tier.value / 100);
     };
     const getTotal = () => Math.max(0, getSubtotal() - getDiscount());
     const chosenVariant = () => {
@@ -192,25 +235,36 @@
     const render = () => {
       const subtotal = getSubtotal();
       const discount = getDiscount();
-      counter.textContent = selected.length + ' / ' + bundleSize;
-      progress.textContent = selected.length + '/' + bundleSize;
+      const qualifiedTier = getQualifiedTier();
+      counter.textContent = selected.length + ' / ' + (Number.isFinite(getBundleLimit()) ? getBundleLimit() : '∞');
+      progress.textContent = selected.length + ' selected';
       regularTotal.textContent = formatMoney(subtotal);
       saving.textContent = '-' + formatMoney(discount);
       bundleTotal.textContent = formatMoney(getTotal());
-      const remaining = bundleSize - selected.length;
-      progressCopy.textContent = remaining > 0 ? 'Add ' + remaining + ' more item' + (remaining === 1 ? '' : 's') + ' to unlock this offer.' : 'Your bundle is ready. Continue to checkout.';
-      checkout.disabled = selected.length !== bundleSize;
+      progressCopy.textContent = qualifiedTier
+        ? getTierLabel(qualifiedTier) + ' selected. Continue to checkout.'
+        : 'Add products until you qualify for one of the configured offers.';
+      checkout.disabled = !qualifiedTier;
       selectedItems.innerHTML = selected.length ? selected.map((item, index) => `
         <div class="discount-bundle__selected-item">
           <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.title)}">
           <span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.variantTitle)}</small></span>
           <button type="button" class="discount-bundle__remove" data-remove="${index}">Remove</button>
         </div>`).join('') : '<div class="discount-bundle__empty">Your chosen products will appear here.</div>';
-      grid.querySelectorAll('[data-product-card]').forEach((card) => card.classList.toggle('is-selected', selected.some((item) => String(item.productId) === card.dataset.productId)));
+      grid.querySelectorAll('[data-product-card]').forEach((card) => {
+        const button = card.querySelector('[data-add-product]');
+        const selectedCount = selected.filter((item) => String(item.productId) === card.dataset.productId).length;
+        card.classList.toggle('is-selected', selectedCount > 0);
+        if (!button || card.dataset.productAvailable !== 'true') return;
+        if (selected.length >= getBundleLimit()) { button.textContent = 'Bundle full'; button.disabled = true; return; }
+        button.disabled = onePerVariant && card.dataset.hasSingleVariant === 'true' && selectedCount > 0;
+        button.textContent = selectedCount ? '+ Add one more' : (card.dataset.hasMultipleVariants === 'true' ? 'Choose options' : 'Add to bundle');
+      });
     };
 
     const addVariant = (card, variant) => {
-      if (!variant || !variant.available || selected.length >= bundleSize) return;
+      if (!variant || !variant.available || selected.length >= getBundleLimit()) return;
+      if (onePerVariant && selected.some((item) => String(item.variantId) === String(variant.id))) return;
       selected.push({ productId: card.dataset.productId, title: card.dataset.title, image: variant.featured_image?.src || card.dataset.image, variantId: variant.id, variantTitle: variant.public_title || variant.title || 'Default', price: Number(variant.price || 0) });
       closeModal();
       render();
@@ -241,11 +295,13 @@
 
     grid.addEventListener('click', (event) => {
       const button = event.target.closest('[data-add-product]');
-      if (!button || selected.length >= bundleSize) return;
+      if (!button || selected.length >= getBundleLimit()) return;
       const card = button.closest('[data-product-card]');
+      if (card.dataset.productAvailable !== 'true') return;
       let variants = [];
       try { variants = JSON.parse(card.querySelector('[data-variants]').textContent); } catch (error) { return; }
       const available = variants.filter((variant) => variant.available);
+      if (!available.length) return;
       if (available.length === 1) addVariant(card, available[0]); else openModal(card, variants);
     });
     selectedItems.addEventListener('click', (event) => { const remove = event.target.closest('[data-remove]'); if (!remove) return; selected.splice(Number(remove.dataset.remove), 1); render(); });
@@ -254,20 +310,21 @@
 
     const replaceTokens = (value) => String(value || '').replaceAll('{{shop_url}}', window.location.origin).replaceAll('{{cart_url}}', shopRoot + 'cart').replaceAll('{{checkout_url}}', shopRoot + 'checkout').replaceAll('{{variant_ids}}', selected.map((item) => item.variantId).join(',')).replaceAll('{{bundle_total}}', String(getTotal() / 100));
     checkout.addEventListener('click', async () => {
-      if (selected.length !== bundleSize) return;
+      if (!getQualifiedTier()) return;
       checkout.disabled = true;
       try {
-        const response = await fetch(shopRoot + 'cart/add.js', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ items: selected.map((item) => ({ id: item.variantId, quantity: 1, properties: { _bundle_source: 'discount-bundle-app', _bundle_offer: offerType === 'fixed' ? 'Bundle price ' + formatMoney(fixedPrice) : percentOff + '% bundle saving' } })) }) });
+          const items = Array.from(selected.reduce((lines, item) => {
+            const line = lines.get(item.variantId) || { id: item.variantId, quantity: 0 };
+            line.quantity += 1;
+            lines.set(item.variantId, line);
+            return lines;
+          }, new Map()).values()).map((item) => ({ ...item, properties: { _bundle_source: 'discount-bundle-app' } }));
+          const response = await fetch(shopRoot + 'cart/add.js', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ items }) });
         if (!response.ok) throw new Error('Unable to add the bundle');
-        if (checkoutMode === 'custom') {
-          const providerUrl = replaceTokens(customUrl).trim();
-          if (providerUrl) { window.location.assign(providerUrl); return; }
-          const providerCode = replaceTokens(customCode).trim();
-          if (providerCode) { window.discountBundleCheckout = { selectedItems: selected, bundleTotal: getTotal() / 100, checkoutUrl: shopRoot + 'checkout', cartUrl: shopRoot + 'cart' }; new Function('payload', providerCode)(window.discountBundleCheckout); return; }
-        }
         window.location.assign(shopRoot + 'checkout');
       } catch (error) { checkout.disabled = false; progressCopy.textContent = 'We could not add this bundle. Please try again.'; }
     });
+    parseBundleTiers();
     render();
   })();
 </script>
@@ -278,18 +335,27 @@
   "target": "section",
   "settings": [
     { "type": "collection", "id": "bundle_collection", "label": "Products collection", "info": "All available products from this collection appear in the bundle. No storefront category filters are used." },
-    { "type": "text", "id": "offer_message", "label": "Offer message", "info": "Leave blank to generate this from the discount settings below." },
-    { "type": "range", "id": "bundle_size", "label": "Products required", "min": 2, "max": 10, "step": 1, "default": 3 },
-    { "type": "select", "id": "offer_type", "label": "Offer type", "default": "percentage", "options": [{ "value": "percentage", "label": "Percentage off" }, { "value": "fixed", "label": "Fixed bundle price" }] },
-    { "type": "range", "id": "percent_off", "label": "Percentage off", "min": 1, "max": 100, "step": 1, "default": 20 },
-    { "type": "number", "id": "fixed_bundle_price", "label": "Fixed bundle price", "default": 999, "info": "Used when Offer type is Fixed bundle price. Enter the price in your store currency." },
-    { "type": "textarea", "id": "discount_detail", "label": "Discount information", "default": "Your configured bundle offer is shown before checkout. Shopify calculates the final eligible discount securely in cart and checkout." },
-    { "type": "select", "id": "checkout_mode", "label": "Checkout mode", "default": "shopify", "options": [{ "value": "shopify", "label": "Shopify checkout" }, { "value": "custom", "label": "Custom GoKwik / Shiprocket checkout" }] },
+    { "type": "text", "id": "offer_message", "label": "Offer message", "info": "Optional message shown above the products." },
+    { "type": "checkbox", "id": "one_per_variant", "label": "Allow only one of each variant", "default": false },
+    { "type": "header", "content": "Bundle offers" },
+    { "type": "paragraph", "content": "Set each offer to the same quantity and discount created in Discount Bundle. The highest enabled quantity is the bundle limit." },
+    { "type": "checkbox", "id": "bundle_offer_1_enabled", "label": "Enable offer 1", "default": true },
+    { "type": "range", "id": "bundle_offer_1_quantity", "label": "Offer 1: number of items", "min": 2, "max": 50, "step": 1, "default": 2 },
+    { "type": "select", "id": "bundle_offer_1_type", "label": "Offer 1: discount type", "default": "percentage", "options": [{ "value": "percentage", "label": "Percentage off" }, { "value": "fixed_price", "label": "Fixed total bundle price" }] },
+    { "type": "number", "id": "bundle_offer_1_value", "label": "Offer 1: percentage or fixed price", "default": 10 },
+    { "type": "checkbox", "id": "bundle_offer_2_enabled", "label": "Enable offer 2", "default": true },
+    { "type": "range", "id": "bundle_offer_2_quantity", "label": "Offer 2: number of items", "min": 2, "max": 50, "step": 1, "default": 3 },
+    { "type": "select", "id": "bundle_offer_2_type", "label": "Offer 2: discount type", "default": "percentage", "options": [{ "value": "percentage", "label": "Percentage off" }, { "value": "fixed_price", "label": "Fixed total bundle price" }] },
+    { "type": "number", "id": "bundle_offer_2_value", "label": "Offer 2: percentage or fixed price", "default": 15 },
+    { "type": "checkbox", "id": "bundle_offer_3_enabled", "label": "Enable offer 3", "default": false },
+    { "type": "range", "id": "bundle_offer_3_quantity", "label": "Offer 3: number of items", "min": 2, "max": 50, "step": 1, "default": 4 },
+    { "type": "select", "id": "bundle_offer_3_type", "label": "Offer 3: discount type", "default": "percentage", "options": [{ "value": "percentage", "label": "Percentage off" }, { "value": "fixed_price", "label": "Fixed total bundle price" }] },
+    { "type": "number", "id": "bundle_offer_3_value", "label": "Offer 3: percentage or fixed price", "default": 20 },
+    { "type": "checkbox", "id": "bundle_offer_4_enabled", "label": "Enable offer 4", "default": false },
+    { "type": "range", "id": "bundle_offer_4_quantity", "label": "Offer 4: number of items", "min": 2, "max": 50, "step": 1, "default": 5 },
+    { "type": "select", "id": "bundle_offer_4_type", "label": "Offer 4: discount type", "default": "percentage", "options": [{ "value": "percentage", "label": "Percentage off" }, { "value": "fixed_price", "label": "Fixed total bundle price" }] },
+    { "type": "number", "id": "bundle_offer_4_value", "label": "Offer 4: percentage or fixed price", "default": 25 },
     { "type": "text", "id": "shopify_button_label", "label": "Shopify button label", "default": "Checkout securely" },
-    { "type": "text", "id": "custom_button_label", "label": "Custom checkout button label", "default": "Continue to secure checkout" },
-    { "type": "textarea", "id": "custom_checkout_url", "label": "Custom provider URL", "info": "Optional. Runs after bundle items are added. You may use {{checkout_url}}, {{cart_url}}, {{shop_url}}, {{variant_ids}}, and {{bundle_total}}." },
-    { "type": "textarea", "id": "custom_checkout_code", "label": "Custom provider code", "info": "Optional provider-approved GoKwik or Shiprocket browser code. It runs only after items are added to Shopify cart. Do not paste private API keys." },
-    { "type": "text", "id": "custom_checkout_note", "label": "Custom checkout note", "default": "You will continue to our secure checkout partner." },
     { "type": "text", "id": "summary_heading", "label": "Summary heading", "default": "Your bundle" },
     { "type": "range", "id": "product_limit", "label": "Products to show", "min": 4, "max": 50, "step": 1, "default": 16 }
   ]
