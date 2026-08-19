@@ -2,7 +2,7 @@
 
 client_id = "6768c8ee8bcc15436a4881b9250a8860"
 name = "Discount bundle App"
-application_url = "https://discount-bundle-app.onrender.com"
+application_url = "https://discount-bunde-app-production.up.railway.app/auth/login"
 embedded = true
 
 [build]
@@ -36,4 +36,4 @@ api_version = "2026-07"
 scopes = "read_discounts,read_orders,read_products,read_themes,write_discounts,write_products,write_themes"
 
 [auth]
-redirect_urls = [ "https://discount-bundle-app.onrender.com/auth/callback" ]
+redirect_urls = [ "https://discount-bunde-app-production.up.railway.app/auth/login/auth/callback" ]

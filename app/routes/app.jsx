@@ -30,10 +30,8 @@ export default function App() {
         <s-link href={DASHBOARD_HOME_PATH} rel="home">Dashboard</s-link>
         <s-link href="/app/analytics">Analytics</s-link>
         <s-link href="/app/volume_discounts">Quantity offers</s-link>
-        <s-link href={plan.isPro ? "/app/disocunt_bundle" : "/app/billing"}>
-        Bundle offers {plan.isPro ? "" : "(Pro)"}
-        </s-link>
-        <s-link href="/app/storefront_setup">Storefront setup</s-link>
+        <s-link href={plan.isPro ? "/app/disocunt_bundle" : "/app/billing"}> Bundle offers {plan.isPro ? "" : "(Pro)"}</s-link>
+        <s-link href="/app/storefront_setup">Set up your store</s-link>
         {/* <s-link href="/app/flatoff_disocunt">Simple sale {plan.isPro ? "" : "(Pro)"}</s-link> */}
         <s-link href="/app/help">Help & support</s-link>
         <s-link href="/app/billing">Plans & billing</s-link>
