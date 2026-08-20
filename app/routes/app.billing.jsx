@@ -25,14 +25,14 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { billing, session, redirect } = await authenticate.admin(request);
+  const { billing, redirect } = await authenticate.admin(request);
   const subscription = await checkSubscription(billing);
 
   if (subscription) {
     return redirect(DASHBOARD_HOME_PATH);
   }
 
-  return requestSubscription(billing, request, session.shop);
+  return requestSubscription(billing);
 };
 
 export default function BillingPage() {

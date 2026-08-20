@@ -16,8 +16,8 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { billing, session } = await authenticate.admin(request);
-  await requireProSubscription(billing, request, session.shop);
+  const { billing } = await authenticate.admin(request);
+  await requireProSubscription(billing);
   return null;
 };
 

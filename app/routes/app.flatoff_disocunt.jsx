@@ -9,8 +9,8 @@ const FLAT_PERCENTAGE_METAFIELD_NAMESPACE = "$app:bundle-pack-3-for-999";
 const FLAT_PERCENTAGE_METAFIELD_KEY = "function-configuration";
 
 export const loader = async ({ request }) => {
-  const { admin, billing, session } = await authenticate.admin(request);
-  await requireProSubscription(billing, request, session.shop);
+  const { admin, billing } = await authenticate.admin(request);
+  await requireProSubscription(billing);
 
   try {
     const response = await admin.graphql(
@@ -84,8 +84,8 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { admin, billing, session } = await authenticate.admin(request);
-  await requireProSubscription(billing, request, session.shop);
+  const { admin, billing } = await authenticate.admin(request);
+  await requireProSubscription(billing);
   const formData = await request.formData();
   const intent = String(formData.get("intent") || "create");
 

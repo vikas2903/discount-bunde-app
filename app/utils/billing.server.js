@@ -33,49 +33,22 @@ export async function checkSubscription(billing) {
   return result.appSubscriptions?.[0] ?? null;
 }
 
-function buildReturnUrl(request, shop) {
-  const requestUrl = new URL(request.url);
-  // The billing flow is initiated on the active deployment, so always return
-  // to that same origin. This avoids a stale SHOPIFY_APP_URL environment value
-  // sending merchants to a previous host, where no Shopify session exists.
-  // Shopify's Node adapter builds request.url from the public request URL.
-  const appUrl = requestUrl.origin;
-  // Return directly to a dashboard route that is available to every plan.
-  // Going through /app used to immediately redirect to the Pro-only bundle
-  // page, which could send merchants back to billing before Shopify's
-  // subscription status had refreshed.
-  const returnUrl = new URL(DASHBOARD_HOME_PATH, appUrl);
-
-  // Preserve the shop and embed context so Shopify can re-enter the app cleanly
-  // after the hosted billing approval page closes.
-  if (shop) {
-    returnUrl.searchParams.set("shop", shop);
-  }
-
-  if (requestUrl.searchParams.get("host")) {
-    returnUrl.searchParams.set("host", requestUrl.searchParams.get("host"));
-  }
-
-  if (requestUrl.searchParams.get("embedded")) {
-    returnUrl.searchParams.set("embedded", requestUrl.searchParams.get("embedded"));
-  }
-
-  return returnUrl.toString();
-}
-
-export async function requestSubscription(billing, request, shop) {
+export async function requestSubscription(billing) {
   if (BILLING_DISABLED) {
     return getBypassSubscription();
   }
 
+  // Let Shopify's React Router package choose the billing return URL. Its
+  // default return keeps the merchant inside Shopify Admin and preserves the
+  // embedded authentication context. A hand-built Railway return URL caused
+  // intermittent session loss after the approval screen.
   return billing.request({
     plan: MONTHLY_PLAN,
     isTest: BILLING_TEST_MODE,
-    returnUrl: buildReturnUrl(request, shop),
   });
 }
 
-export async function requireSubscription(billing, request, shop) {
+export async function requireSubscription(billing) {
   if (BILLING_DISABLED) {
     return getBypassSubscription();
   }
@@ -84,7 +57,7 @@ export async function requireSubscription(billing, request, shop) {
   const result = await billing.require({
     plans: [MONTHLY_PLAN],
     isTest: BILLING_TEST_MODE,
-    onFailure: async () => requestSubscription(billing, request, shop),
+    onFailure: async () => requestSubscription(billing),
   });
 
   return result.appSubscriptions?.[0] ?? null;
@@ -92,8 +65,8 @@ export async function requireSubscription(billing, request, shop) {
 
 // Free stores can create one quantity offer. All storefront bundles, flat
 // sales, and additional quantity offers require an approved Pro subscription.
-export async function requireProSubscription(billing, request, shop) {
-  return requireSubscription(billing, request, shop);
+export async function requireProSubscription(billing) {
+  return requireSubscription(billing);
 }
 
 export function getPlanDetails(subscription) {

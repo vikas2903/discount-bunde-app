@@ -12,12 +12,31 @@ import {
   SUBSCRIPTION_PLAN,
 } from "./utils/billing.server";
 
+function getAppUrl() {
+  const configuredUrl = process.env.SHOPIFY_APP_URL?.trim() || "";
+  // Railway values must be a plain URL, but tolerate a Markdown URL copied
+  // from chat so the OAuth/session flow is not sent to an invalid location.
+  const markdownMatch = configuredUrl.match(/^\[([^\]]+)]\([^)]*\)$/);
+  const appUrl = markdownMatch?.[1] || configuredUrl;
+
+  try {
+    const url = new URL(appUrl);
+    if (url.protocol !== "https:") return "";
+    url.pathname = "";
+    url.search = "";
+    url.hash = "";
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return "";
+  }
+}
+
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
   apiVersion: ApiVersion.October25,
   scopes: process.env.SCOPES?.split(","),
-  appUrl: process.env.SHOPIFY_APP_URL || "",
+  appUrl: getAppUrl(),
   authPathPrefix: "/auth",
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
