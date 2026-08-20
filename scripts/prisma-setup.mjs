@@ -2,8 +2,8 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 // Prisma validates DATABASE_URL even while generating its client. This fallback
-// lets a first Render build complete when the variable has not been set yet.
-// A configured Render DATABASE_URL always takes precedence.
+// lets a local build complete when the variable has not been set yet.
+// A configured production DATABASE_URL always takes precedence.
 const environment = {
   ...process.env,
   DATABASE_URL: process.env.DATABASE_URL || "file:./dev.sqlite",

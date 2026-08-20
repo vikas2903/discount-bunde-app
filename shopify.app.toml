@@ -2,11 +2,11 @@
 
 client_id = "6768c8ee8bcc15436a4881b9250a8860"
 name = "Discount bundle App"
-application_url = "https://discount-bunde-app-production.up.railway.app/auth/login"
+application_url = "https://discount-bunde-app-production.up.railway.app"
 embedded = true
 
 [build]
-automatically_update_urls_on_dev = true
+automatically_update_urls_on_dev = false
 
 [webhooks]
 api_version = "2026-07"
@@ -33,7 +33,7 @@ api_version = "2026-07"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_discounts,read_orders,read_products,read_themes,write_discounts,write_products,write_themes"
+scopes = "read_discounts,read_orders,read_products,read_themes,write_discounts"
 
 [auth]
-redirect_urls = [ "https://discount-bunde-app-production.up.railway.app/auth/login/auth/callback" ]
+redirect_urls = [ "https://discount-bunde-app-production.up.railway.app/auth/callback" ]
