@@ -1,3 +1,4 @@
+/* global process */
 import { useMemo, useState } from "react";
 import { useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";

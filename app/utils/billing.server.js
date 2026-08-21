@@ -33,22 +33,32 @@ export async function checkSubscription(billing) {
   return result.appSubscriptions?.[0] ?? null;
 }
 
-export async function requestSubscription(billing) {
+function getBillingReturnUrl(session) {
+  const appHandle = process.env.SHOPIFY_APP_HANDLE?.trim();
+
+  // Returning to Admin (rather than directly to the Railway URL) makes Shopify
+  // launch the embedded app with its shop/host/session-token context.
+  if (!appHandle || !session?.shop) {
+    return undefined;
+  }
+
+  const storeHandle = session.shop.replace(/\.myshopify\.com$/i, "");
+  return `https://admin.shopify.com/store/${encodeURIComponent(storeHandle)}/apps/${encodeURIComponent(appHandle)}/app/billing`;
+}
+
+export async function requestSubscription(billing, session) {
   if (BILLING_DISABLED) {
     return getBypassSubscription();
   }
 
-  // Let Shopify's React Router package choose the billing return URL. Its
-  // default return keeps the merchant inside Shopify Admin and preserves the
-  // embedded authentication context. A hand-built Railway return URL caused
-  // intermittent session loss after the approval screen.
   return billing.request({
     plan: MONTHLY_PLAN,
     isTest: BILLING_TEST_MODE,
+    returnUrl: getBillingReturnUrl(session),
   });
 }
 
-export async function requireSubscription(billing) {
+export async function requireSubscription(billing, session) {
   if (BILLING_DISABLED) {
     return getBypassSubscription();
   }
@@ -57,7 +67,7 @@ export async function requireSubscription(billing) {
   const result = await billing.require({
     plans: [MONTHLY_PLAN],
     isTest: BILLING_TEST_MODE,
-    onFailure: async () => requestSubscription(billing),
+    onFailure: async () => requestSubscription(billing, session),
   });
 
   return result.appSubscriptions?.[0] ?? null;
@@ -65,8 +75,8 @@ export async function requireSubscription(billing) {
 
 // Free stores can create one quantity offer. All storefront bundles, flat
 // sales, and additional quantity offers require an approved Pro subscription.
-export async function requireProSubscription(billing) {
-  return requireSubscription(billing);
+export async function requireProSubscription(billing, session) {
+  return requireSubscription(billing, session);
 }
 
 export function getPlanDetails(subscription) {

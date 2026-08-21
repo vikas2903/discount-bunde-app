@@ -25,14 +25,14 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { billing, redirect } = await authenticate.admin(request);
+  const { billing, redirect, session } = await authenticate.admin(request);
   const subscription = await checkSubscription(billing);
 
   if (subscription) {
     return redirect(DASHBOARD_HOME_PATH);
   }
 
-  return requestSubscription(billing);
+  return requestSubscription(billing, session);
 };
 
 export default function BillingPage() {
@@ -146,7 +146,7 @@ export default function BillingPage() {
                 Pro is active for this store. Manage or cancel this subscription in Shopify Admin → Settings → Billing.
               </div>
             ) : (
-              <Form method="post" reloadDocument>
+              <Form method="post">
                 <s-button type="submit" variant="primary" loading={isSubmitting}>
                   Start {plan.trialDays}-day Pro trial
                 </s-button>

@@ -16,8 +16,8 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { billing } = await authenticate.admin(request);
-  await requireProSubscription(billing);
+  const { billing, session } = await authenticate.admin(request);
+  await requireProSubscription(billing, session);
   return null;
 };
 
@@ -57,7 +57,7 @@ export default function HelpPage() {
             <li>Create a Shopify Page, assign the page template, then add that page to your store navigation.</li>
             <li>Test the bundle with an empty cart and again with unrelated cart products.</li>
           </ol>
-          {plan.isPro ? <s-link href={themeEditorUrl} target="_top">Open theme editor and add Bundle Section</s-link> : <Form method="post" reloadDocument><s-button type="submit" variant="primary" loading={navigation.state !== "idle"}>Start 14-day Pro trial</s-button></Form>}
+          {plan.isPro ? <s-link href={themeEditorUrl} target="_top">Open theme editor and add Bundle Section</s-link> : <Form method="post"><s-button type="submit" variant="primary" loading={navigation.state !== "idle"}>Start 14-day Pro trial</s-button></Form>}
           <p style={tipStyle}>Use the same collection, quantity, and fixed price in the app and theme block. Shopify calculates the final discount securely at cart and checkout.</p>
         </section>
 
