@@ -1,4 +1,6 @@
-import { Form, useLoaderData, useNavigation } from "react-router";
+import { useState } from "react";
+import { useLoaderData } from "react-router";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import {
   BILLING_DISABLED,
@@ -36,10 +38,48 @@ export const action = async ({ request }) => {
 };
 
 export default function BillingPage() {
-  const navigation = useNavigation();
+  const shopify = useAppBridge();
   const { plan, subscription, billingDisabled, billingTestMode } = useLoaderData();
-  const isSubmitting = navigation.state === "submitting";
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [billingError, setBillingError] = useState("");
   const hasSubscription = Boolean(subscription);
+
+  async function startSubscription() {
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    setBillingError("");
+
+    try {
+      // Explicitly obtain a fresh token. Session tokens are short-lived, and a
+      // document form submission does not reliably include one in an iframe.
+      const token = await shopify.idToken();
+      const response = await fetch("/app/billing", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const confirmationUrl = response.headers.get(
+        "X-Shopify-API-Request-Failure-Reauthorize-Url",
+      );
+
+      if (confirmationUrl) {
+        window.open(confirmationUrl, "_top");
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error("Shopify could not start the subscription. Please try again.");
+      }
+    } catch (error) {
+      setBillingError(
+        error instanceof Error
+          ? error.message
+          : "Shopify could not start the subscription. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <s-page heading="Plans & billing">
@@ -77,6 +117,12 @@ export default function BillingPage() {
             <s-paragraph>
               Billing is currently bypassed in this environment, so plan approvals are not required.
             </s-paragraph>
+          </s-banner>
+        ) : null}
+
+        {billingError ? (
+          <s-banner tone="critical">
+            <s-paragraph>{billingError}</s-paragraph>
           </s-banner>
         ) : null}
 
@@ -146,11 +192,14 @@ export default function BillingPage() {
                 Pro is active for this store. Manage or cancel this subscription in Shopify Admin → Settings → Billing.
               </div>
             ) : (
-              <Form method="post">
-                <s-button type="submit" variant="primary" loading={isSubmitting}>
-                  Start {plan.trialDays}-day Pro trial
-                </s-button>
-              </Form>
+              <s-button
+                type="button"
+                variant="primary"
+                loading={isSubmitting}
+                onClick={startSubscription}
+              >
+                Start {plan.trialDays}-day Pro trial
+              </s-button>
             )}
 
             <div style={noteBoxStyle}>
