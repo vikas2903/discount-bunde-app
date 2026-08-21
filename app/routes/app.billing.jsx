@@ -34,7 +34,26 @@ export const action = async ({ request }) => {
     return redirect(DASHBOARD_HOME_PATH);
   }
 
-  return requestSubscription(billing, session);
+  try {
+    await requestSubscription(billing, session);
+  } catch (responseOrError) {
+    // The Shopify billing helper uses a 401 response with this header as an
+    // embedded-app redirect signal. Return it as JSON so the client can
+    // navigate reliably instead of rendering React Router's error response.
+    if (responseOrError instanceof Response) {
+      const confirmationUrl = responseOrError.headers.get(
+        "X-Shopify-API-Request-Failure-Reauthorize-Url",
+      );
+
+      if (confirmationUrl) {
+        return Response.json({ confirmationUrl });
+      }
+    }
+
+    throw responseOrError;
+  }
+
+  return Response.json({});
 };
 
 export default function BillingPage() {
@@ -58,9 +77,12 @@ export default function BillingPage() {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
-      const confirmationUrl = response.headers.get(
-        "X-Shopify-API-Request-Failure-Reauthorize-Url",
-      );
+      const payload = response.headers.get("content-type")?.includes("application/json")
+        ? await response.json()
+        : null;
+      const confirmationUrl =
+        payload?.confirmationUrl ||
+        response.headers.get("X-Shopify-API-Request-Failure-Reauthorize-Url");
 
       if (confirmationUrl) {
         window.open(confirmationUrl, "_top");

@@ -2,7 +2,7 @@
 
 client_id = "6768c8ee8bcc15436a4881b9250a8860"
 name = "Discount bundle App"
-application_url = "https://discount-bunde-app-production.up.railway.app"
+application_url = "https://discount-bunde-app-production.up.railway.app/a"
 embedded = true
 
 [build]
