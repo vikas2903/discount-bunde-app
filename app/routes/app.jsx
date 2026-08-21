@@ -12,7 +12,15 @@ const DASHBOARD_HOME_PATH = "/app/analytics";
 
 export const loader = async ({ request }) => {
   const { billing } = await authenticate.admin(request);
-  const subscription = await checkSubscription(billing);
+  let subscription = null;
+
+  try {
+    subscription = await checkSubscription(billing);
+  } catch (error) {
+    // Navigation must still work if a newly installed store's billing lookup
+    // briefly fails while its session is being created/refreshed.
+    console.error("[billing] Unable to load the current subscription", error);
+  }
 
   // eslint-disable-next-line no-undef
   return {
