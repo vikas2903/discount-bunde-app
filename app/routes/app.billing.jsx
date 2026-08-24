@@ -69,6 +69,13 @@ export default function BillingPage() {
     setIsSubmitting(true);
     setBillingError("");
 
+    // A billing confirmation URL is only available after the request below.
+    // Do not use window.open after that await: browsers treat it as a popup and
+    // commonly block it. Open a harmless tab while this button still has the
+    // user's activation, then send that top-level tab to Shopify's approval
+    // page once the URL arrives.
+    const approvalWindow = window.open("about:blank", "_blank");
+
     try {
       // Explicitly obtain a fresh token. Session tokens are short-lived, and a
       // document form submission does not reliably include one in an iframe.
@@ -85,7 +92,13 @@ export default function BillingPage() {
         response.headers.get("X-Shopify-API-Request-Failure-Reauthorize-Url");
 
       if (confirmationUrl) {
-        window.open(confirmationUrl, "_top");
+        if (!approvalWindow) {
+          throw new Error(
+            "Your browser blocked the Shopify approval page. Please allow pop-ups for Shopify Admin and try again.",
+          );
+        }
+
+        approvalWindow.location.replace(confirmationUrl);
         return;
       }
 
@@ -93,6 +106,9 @@ export default function BillingPage() {
         throw new Error("Shopify could not start the subscription. Please try again.");
       }
     } catch (error) {
+      if (approvalWindow && !approvalWindow.closed) {
+        approvalWindow.close();
+      }
       setBillingError(
         error instanceof Error
           ? error.message
