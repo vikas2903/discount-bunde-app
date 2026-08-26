@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLoaderData } from "react-router";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import {
   BILLING_DISABLED,
@@ -68,13 +69,24 @@ export const action = async ({ request }) => {
 
     console.error("[billing] Unable to create subscription", responseOrError);
     return Response.json(
-      { error: "Shopify could not create the subscription. Check the Railway logs for the billing error." },
+      { error: getBillingErrorMessage(responseOrError) },
       { status: 500 },
     );
   }
 };
 
+function getBillingErrorMessage(error) {
+  const details = Array.isArray(error?.errorData)
+    ? error.errorData
+        .map((entry) => (typeof entry?.message === "string" ? entry.message : ""))
+        .filter(Boolean)
+    : [];
+
+  return details.join(" ") || "Shopify could not create the subscription. Check the Railway logs for details.";
+}
+
 export default function BillingPage() {
+  const shopify = useAppBridge();
   const { plan, subscription, billingDisabled, billingTestMode } = useLoaderData();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [billingError, setBillingError] = useState("");
@@ -86,19 +98,37 @@ export default function BillingPage() {
     setIsSubmitting(true);
     setBillingError("");
 
+    // Open the approval tab synchronously with the merchant's click. Shopify
+    // confirmation URLs cannot be displayed inside the Admin iframe, and a
+    // tab opened only after an async request is commonly blocked in previews.
+    const approvalWindow = window.open("about:blank", "_blank");
+
+    if (approvalWindow) {
+      approvalWindow.document.title = "Opening Shopify billing approval";
+      approvalWindow.document.body.innerHTML =
+        '<p style="font-family:system-ui;padding:2rem">Opening Shopify billing approval…</p>';
+    }
+
     try {
-      // App Bridge automatically adds a fresh ID token to same-origin fetches.
+      // Explicitly request the ID token so this also works in development
+      // previews where fetch interception can be unavailable during startup.
+      const token = await shopify.idToken();
       const response = await fetch("/app/billing", {
         method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
       });
       const payload = response.headers.get("content-type")?.includes("application/json")
         ? await response.json()
         : null;
 
       if (payload?.confirmationUrl) {
-        // `_top` reuses the existing Shopify Admin tab; unlike `_blank`, it
-        // does not create a blank pop-up that can be blocked by the browser.
-        window.open(payload.confirmationUrl, "_top");
+        if (!approvalWindow) {
+          throw new Error(
+            "Your browser blocked Shopify's approval tab. Allow pop-ups for Shopify Admin, then try again.",
+          );
+        }
+
+        approvalWindow.location.replace(payload.confirmationUrl);
         return;
       }
 
@@ -108,6 +138,9 @@ export default function BillingPage() {
         );
       }
     } catch (error) {
+      if (approvalWindow && !approvalWindow.closed) {
+        approvalWindow.close();
+      }
       setBillingError(
         error instanceof Error
           ? error.message
