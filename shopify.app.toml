@@ -16,7 +16,7 @@ api_version = "2026-07"
   topics = [ "app/scopes_update" ]
 
   [[webhooks.subscriptions]]
-  uri = "/webhooks/app/uninstalled"
+  uri = "/webhooks/app/uninstalled" 
   topics = [ "app/uninstalled" ]
 
   [[webhooks.subscriptions]]
