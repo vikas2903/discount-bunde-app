@@ -10,8 +10,25 @@ import {
   requestSubscription,
 } from "../utils/billing.server";
 
-const FREE_FEATURES = ["One active quantity discount", "Collection targeting", "Basic in-app support"];
-const PRO_FEATURES = ["Unlimited quantity discounts", "Fixed-price bundle discounts", "Storefront bundle page", "Simple sales", "GoKwik or Shiprocket checkout snippets"];
+const FREE_FEATURES = [
+  "One active quantity / volume discount",
+  "Percentage-based quantity tiers",
+  "Collection targeting",
+  "One product-page quantity-offer template",
+  "Offer scheduling, editing, and basic in-app support",
+];
+
+const PRO_FEATURES = [
+  "Unlimited active quantity / volume discounts",
+  "All discount types: quantity tiers, fixed-price bundles, percentage bundles, and simple percentage sales",
+  "Bundle template 1: mix-and-match collection bundle page",
+  "Bundle template 2: alternative collection bundle page",
+  "Volume discount template: buy-more-save-more product-page offer",
+  "Storefront setup and theme-editor installation links",
+  "Collection targeting, offer scheduling, and editing",
+  "GoKwik and Shiprocket checkout snippets",
+  "Priority Pro in-app support",
+];
 
 export const loader = async ({ request }) => {
   const { billing } = await authenticate.admin(request);
@@ -170,7 +187,7 @@ export default function BillingPage() {
             </div>
             <div style={{ display: "grid", gap: "0.35rem" }}>
               <h3 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 800 }}>$0 / month</h3>
-              <p style={mutedCopyStyle}>Use one active quantity offer at no cost. No card or trial approval is required.</p>
+              <p style={mutedCopyStyle}>A simple plan for one buy-more-save-more offer. No card or trial approval is required.</p>
             </div>
             <ul style={featureListStyle}>{FREE_FEATURES.map((feature) => <li key={feature}>{feature}</li>)}</ul>
             {!hasSubscription ? <div style={noteBoxStyle}>Your store is currently on Free.</div> : null}
@@ -197,7 +214,7 @@ export default function BillingPage() {
                 ${plan.amount} / {plan.intervalLabel}
               </h3>
               <p style={mutedCopyStyle}>
-                Approve the subscription now, use all Pro features free for {plan.trialDays} days, then Shopify bills ${plan.amount} every {plan.intervalLabel}.
+                Unlock every discount type and all three storefront templates free for {plan.trialDays} days. Shopify then bills ${plan.amount} every {plan.intervalLabel}.
               </p>
             </div>
 
