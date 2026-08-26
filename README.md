@@ -79,6 +79,29 @@ For more information on the Shopify Dev MCP please read [the documentation](http
 
 ## Deployment
 
+### Railway production checklist
+
+Before making the app live, deploy a running Railway service and use its exact
+public HTTPS domain everywhere. The old domain must not return `410 Gone`.
+
+Set these Railway variables:
+
+```text
+NODE_ENV=production
+SHOPIFY_APP_URL=https://your-app.up.railway.app
+SHOPIFY_BILLING_TEST=false
+SHOPIFY_SKIP_BILLING=false
+DATABASE_URL=file:/data/dev.sqlite
+```
+
+Mount a Railway Volume at `/data` when using the SQLite value above. Without a
+persistent database, Shopify sessions disappear on restart and billing approval
+cannot return to the app reliably.
+
+In the Shopify Partner Dashboard, set the same value for the app URL and add
+`https://your-app.up.railway.app/auth/callback` as an allowed redirect URL.
+For development-store testing only, change `SHOPIFY_BILLING_TEST` to `true`.
+
 ### Application Storage
 
 This template uses [Prisma](https://www.prisma.io/) to store session data, by default using an [SQLite](https://www.sqlite.org/index.html) database.
