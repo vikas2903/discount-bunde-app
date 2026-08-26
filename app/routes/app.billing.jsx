@@ -33,10 +33,28 @@ export const action = async ({ request }) => {
     return redirect(DASHBOARD_HOME_PATH);
   }
 
-  // This deliberately throws the redirect response created by Shopify's
-  // billing helper. App Bridge receives that response and navigates the
-  // Shopify Admin top-level window to the approval page.
-  await requestSubscription(billing, session);
+  try {
+    await requestSubscription(billing, session);
+  } catch (responseOrError) {
+    // The billing helper returns the hosted Shopify approval URL as a 401
+    // response for authenticated XHR requests. Give the URL to the browser so
+    // the client can explicitly navigate Shopify Admin's top-level window.
+    if (responseOrError instanceof Response) {
+      const confirmationUrl = responseOrError.headers.get(
+        "X-Shopify-API-Request-Failure-Reauthorize-Url",
+      );
+
+      if (confirmationUrl) {
+        return Response.json({ confirmationUrl });
+      }
+    }
+
+    console.error("[billing] Unable to create subscription", responseOrError);
+    return Response.json(
+      { error: "Shopify could not create the subscription. Check the Railway logs for the billing error." },
+      { status: 500 },
+    );
+  }
 };
 
 export default function BillingPage() {
@@ -53,15 +71,24 @@ export default function BillingPage() {
 
     try {
       // App Bridge automatically adds a fresh ID token to same-origin fetches.
-      // More importantly, it handles Shopify's billing redirect response by
-      // navigating the top-level Admin window. Pop-ups and iframe navigation
-      // are blocked by browsers and Shopify's frame restrictions.
       const response = await fetch("/app/billing", {
         method: "POST",
       });
+      const payload = response.headers.get("content-type")?.includes("application/json")
+        ? await response.json()
+        : null;
+
+      if (payload?.confirmationUrl) {
+        // `_top` reuses the existing Shopify Admin tab; unlike `_blank`, it
+        // does not create a blank pop-up that can be blocked by the browser.
+        window.open(payload.confirmationUrl, "_top");
+        return;
+      }
 
       if (!response.ok) {
-        throw new Error("Shopify could not start the subscription. Please try again.");
+        throw new Error(
+          payload?.error || "Shopify could not start the subscription. Please try again.",
+        );
       }
     } catch (error) {
       setBillingError(
