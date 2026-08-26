@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useLoaderData } from "react-router";
-import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import {
   BILLING_DISABLED,
@@ -34,30 +33,13 @@ export const action = async ({ request }) => {
     return redirect(DASHBOARD_HOME_PATH);
   }
 
-  try {
-    await requestSubscription(billing, session);
-  } catch (responseOrError) {
-    // The Shopify billing helper uses a 401 response with this header as an
-    // embedded-app redirect signal. Return it as JSON so the client can
-    // navigate reliably instead of rendering React Router's error response.
-    if (responseOrError instanceof Response) {
-      const confirmationUrl = responseOrError.headers.get(
-        "X-Shopify-API-Request-Failure-Reauthorize-Url",
-      );
-
-      if (confirmationUrl) {
-        return Response.json({ confirmationUrl });
-      }
-    }
-
-    throw responseOrError;
-  }
-
-  return Response.json({});
+  // This deliberately throws the redirect response created by Shopify's
+  // billing helper. App Bridge receives that response and navigates the
+  // Shopify Admin top-level window to the approval page.
+  await requestSubscription(billing, session);
 };
 
 export default function BillingPage() {
-  const shopify = useAppBridge();
   const { plan, subscription, billingDisabled, billingTestMode } = useLoaderData();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [billingError, setBillingError] = useState("");
@@ -69,46 +51,19 @@ export default function BillingPage() {
     setIsSubmitting(true);
     setBillingError("");
 
-    // A billing confirmation URL is only available after the request below.
-    // Do not use window.open after that await: browsers treat it as a popup and
-    // commonly block it. Open a harmless tab while this button still has the
-    // user's activation, then send that top-level tab to Shopify's approval
-    // page once the URL arrives.
-    const approvalWindow = window.open("about:blank", "_blank");
-
     try {
-      // Explicitly obtain a fresh token. Session tokens are short-lived, and a
-      // document form submission does not reliably include one in an iframe.
-      const token = await shopify.idToken();
+      // App Bridge automatically adds a fresh ID token to same-origin fetches.
+      // More importantly, it handles Shopify's billing redirect response by
+      // navigating the top-level Admin window. Pop-ups and iframe navigation
+      // are blocked by browsers and Shopify's frame restrictions.
       const response = await fetch("/app/billing", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
       });
-      const payload = response.headers.get("content-type")?.includes("application/json")
-        ? await response.json()
-        : null;
-      const confirmationUrl =
-        payload?.confirmationUrl ||
-        response.headers.get("X-Shopify-API-Request-Failure-Reauthorize-Url");
-
-      if (confirmationUrl) {
-        if (!approvalWindow) {
-          throw new Error(
-            "Your browser blocked the Shopify approval page. Please allow pop-ups for Shopify Admin and try again.",
-          );
-        }
-
-        approvalWindow.location.replace(confirmationUrl);
-        return;
-      }
 
       if (!response.ok) {
         throw new Error("Shopify could not start the subscription. Please try again.");
       }
     } catch (error) {
-      if (approvalWindow && !approvalWindow.closed) {
-        approvalWindow.close();
-      }
       setBillingError(
         error instanceof Error
           ? error.message
