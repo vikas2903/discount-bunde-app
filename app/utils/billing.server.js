@@ -12,6 +12,7 @@ export const SUBSCRIPTION_PLAN = {
 export const BILLING_TEST_MODE = process.env.SHOPIFY_BILLING_TEST === "true";
 export const BILLING_DISABLED = process.env.SHOPIFY_SKIP_BILLING === "true";
 export const DASHBOARD_HOME_PATH = "/app/analytics";
+export const BILLING_SUCCESS_PATH = "/app/disocunt_bundle";
 
 function getBypassSubscription() {
   return {
@@ -43,7 +44,10 @@ function getBillingReturnUrl(session) {
   }
 
   const storeHandle = session.shop.replace(/\.myshopify\.com$/i, "");
-  return `https://admin.shopify.com/store/${encodeURIComponent(storeHandle)}/apps/${encodeURIComponent(appHandle)}/app/billing`;
+  // After Shopify approves the subscription, send the merchant straight to the
+  // Pro-only Bundle offers page. Its loader verifies the active subscription
+  // before showing any bundle data.
+  return `https://admin.shopify.com/store/${encodeURIComponent(storeHandle)}/apps/${encodeURIComponent(appHandle)}${BILLING_SUCCESS_PATH}`;
 }
 
 export async function requestSubscription(billing, session) {
