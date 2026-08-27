@@ -1,14 +1,10 @@
-import { useState } from "react";
-import { useLoaderData } from "react-router";
-import { useAppBridge } from "@shopify/app-bridge-react";
+import { useLoaderData, useLocation } from "react-router";
 import { authenticate } from "../shopify.server";
 import {
   BILLING_DISABLED,
   BILLING_TEST_MODE,
-  DASHBOARD_HOME_PATH,
   SUBSCRIPTION_PLAN,
   checkSubscription,
-  requestSubscription,
 } from "../utils/billing.server";
 
 const FREE_FEATURES = [
@@ -43,112 +39,18 @@ export const loader = async ({ request }) => {
   };
 };
 
-export const action = async ({ request }) => {
-  const { billing, redirect, session } = await authenticate.admin(request);
-  const subscription = await checkSubscription(billing);
-
-  if (subscription) {
-    return redirect(DASHBOARD_HOME_PATH);
-  }
-
-  try {
-    await requestSubscription(billing, session);
-  } catch (responseOrError) {
-    // The billing helper returns the hosted Shopify approval URL as a 401
-    // response for authenticated XHR requests. Give the URL to the browser so
-    // the client can explicitly navigate Shopify Admin's top-level window.
-    if (responseOrError instanceof Response) {
-      const confirmationUrl = responseOrError.headers.get(
-        "X-Shopify-API-Request-Failure-Reauthorize-Url",
-      );
-
-      if (confirmationUrl) {
-        return Response.json({ confirmationUrl });
-      }
-    }
-
-    console.error("[billing] Unable to create subscription", responseOrError);
-    return Response.json(
-      { error: getBillingErrorMessage(responseOrError) },
-      { status: 500 },
-    );
-  }
-};
-
-function getBillingErrorMessage(error) {
-  const details = Array.isArray(error?.errorData)
-    ? error.errorData
-        .map((entry) => (typeof entry?.message === "string" ? entry.message : ""))
-        .filter(Boolean)
-    : [];
-
-  return details.join(" ") || "Shopify could not create the subscription. Check the Railway logs for details.";
-}
-
 export default function BillingPage() {
-  const shopify = useAppBridge();
   const { plan, subscription, billingDisabled, billingTestMode } = useLoaderData();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [billingError, setBillingError] = useState("");
+  const { search } = useLocation();
+  const billingError = new URLSearchParams(search).get("billing_error") || "";
   const hasSubscription = Boolean(subscription);
 
-  async function startSubscription() {
-    if (isSubmitting) return;
-
-    setIsSubmitting(true);
-    setBillingError("");
-
-    // Open the approval tab synchronously with the merchant's click. Shopify
-    // confirmation URLs cannot be displayed inside the Admin iframe, and a
-    // tab opened only after an async request is commonly blocked in previews.
-    const approvalWindow = window.open("about:blank", "_blank");
-
-    if (approvalWindow) {
-      approvalWindow.document.title = "Opening Shopify billing approval";
-      approvalWindow.document.body.innerHTML =
-        '<p style="font-family:system-ui;padding:2rem">Opening Shopify billing approval…</p>';
-    }
-
-    try {
-      // Explicitly request the ID token so this also works in development
-      // previews where fetch interception can be unavailable during startup.
-      const token = await shopify.idToken();
-      const response = await fetch("/app/billing", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const payload = response.headers.get("content-type")?.includes("application/json")
-        ? await response.json()
-        : null;
-
-      if (payload?.confirmationUrl) {
-        if (!approvalWindow) {
-          throw new Error(
-            "Your browser blocked Shopify's approval tab. Allow pop-ups for Shopify Admin, then try again.",
-          );
-        }
-
-        approvalWindow.location.replace(payload.confirmationUrl);
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          payload?.error || "Shopify could not start the subscription. Please try again.",
-        );
-      }
-    } catch (error) {
-      if (approvalWindow && !approvalWindow.closed) {
-        approvalWindow.close();
-      }
-      setBillingError(
-        error instanceof Error
-          ? error.message
-          : "Shopify could not start the subscription. Please try again.",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+  function startSubscription() {
+    // Preserve Shopify's embedded host and shop query parameters. The target
+    // route is loaded as a document, just like a conventional Subscribe link.
+    const startUrl = new URL("/app/billing/start", window.location.origin);
+    startUrl.search = window.location.search;
+    window.location.assign(startUrl.toString());
   }
 
   return (
@@ -262,12 +164,7 @@ export default function BillingPage() {
                 Pro is active for this store. Manage or cancel this subscription in Shopify Admin → Settings → Billing.
               </div>
             ) : (
-              <s-button
-                type="button"
-                variant="primary"
-                loading={isSubmitting}
-                onClick={startSubscription}
-              >
+              <s-button type="button" variant="primary" onClick={startSubscription}>
                 Start {plan.trialDays}-day Pro trial
               </s-button>
             )}
