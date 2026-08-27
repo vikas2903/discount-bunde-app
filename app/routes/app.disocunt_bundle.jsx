@@ -143,6 +143,7 @@ function DiscountBundleListPage() {
   const shopify = useAppBridge();
   const { collections, discounts, discountsError } = useLoaderData();
   const [activeTab, setActiveTab] = useState("all");
+  const now = Date.now();
 
   const collectionTitleMap = useMemo(
     () =>
@@ -151,15 +152,19 @@ function DiscountBundleListPage() {
   );
   const filteredDiscounts = useMemo(() => {
     if (activeTab === "active") {
-      return discounts.filter((discount) => discount.status === "ACTIVE");
+      return discounts.filter(
+        (discount) => getDiscountDisplayState(discount, now).kind === "active",
+      );
     }
 
     if (activeTab === "draft") {
-      return discounts.filter((discount) => discount.status !== "ACTIVE");
+      return discounts.filter(
+        (discount) => getDiscountDisplayState(discount, now).kind !== "active",
+      );
     }
 
     return discounts;
-  }, [activeTab, discounts]);
+  }, [activeTab, discounts, now]);
   const currentAction = actionFetcher.data?.action;
   const actionFormData = actionFetcher.formData;
   const actionErrorMessage = [
@@ -191,16 +196,17 @@ function DiscountBundleListPage() {
   return (
     <s-page>
       <div style={{ display: "grid", gap: "1.5rem" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: "1rem",
-            flexWrap: "wrap",
-          }}
-        >
-          <h1 style={{ margin: 0, fontSize: "1.6rem", fontWeight: 700 }}>Bundle offers</h1>
+        <div style={heroStyle}>
+          <div style={{ display: "grid", gap: "0.45rem", maxWidth: "44rem" }}>
+            <div style={eyebrowStyle}>Automatic discounts</div>
+            <h1 style={{ margin: 0, fontSize: "clamp(1.6rem, 3vw, 2.1rem)", fontWeight: 750 }}>
+              Bundle offers
+            </h1>
+            <p style={{ margin: 0, color: "#475569", lineHeight: 1.5 }}>
+              Build mix-and-match offers, schedule their start time, and let Shopify
+              activate them automatically.
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => navigate("new")}
@@ -281,6 +287,7 @@ function DiscountBundleListPage() {
                 <tbody>
                   {filteredDiscounts.length > 0 ? (
                     filteredDiscounts.map((discount) => {
+                      const displayState = getDiscountDisplayState(discount, now);
                       const isActive = discount.status === "ACTIVE";
                       const targetedNodeId = String(
                         actionFormData?.get("discountNodeId") || "",
@@ -318,11 +325,11 @@ function DiscountBundleListPage() {
                             <span
                               style={{
                                 ...statusPillStyle,
-                                background: isActive ? "#b8f7c4" : "#eceff3",
-                                color: isActive ? "#177a34" : "#64748b",
+                                background: displayState.background,
+                                color: displayState.color,
                               }}
                             >
-                              {isActive ? "Active" : "Draft"}
+                              {displayState.label}
                             </span>
                           </td>
                           <td style={bodyCellStyle}>{typeLabel}</td>
@@ -432,6 +439,26 @@ const panelStyle = {
   boxShadow: "0 1px 3px rgba(15, 23, 42, 0.08)",
 };
 
+const heroStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "1rem",
+  flexWrap: "wrap",
+  padding: "1.35rem",
+  border: "1px solid #dbe4f0",
+  borderRadius: "1rem",
+  background: "linear-gradient(135deg, #f8fafc 0%, #eef6f1 100%)",
+};
+
+const eyebrowStyle = {
+  color: "#0f766e",
+  fontSize: "0.72rem",
+  fontWeight: 800,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+};
+
 const toolbarStyle = {
   padding: "0.7rem 0.8rem",
   display: "flex",
@@ -510,3 +537,22 @@ const pagerButtonStyle = {
   fontSize: "1.2rem",
   opacity: 0.45,
 };
+
+function getDiscountDisplayState(discount, now) {
+  const startsAt = Date.parse(discount.startsAt || "");
+  const endsAt = Date.parse(discount.endsAt || "");
+
+  if (discount.status !== "ACTIVE") {
+    return { kind: "inactive", label: "Inactive", background: "#eceff3", color: "#64748b" };
+  }
+
+  if (Number.isFinite(endsAt) && endsAt <= now) {
+    return { kind: "expired", label: "Expired", background: "#fef3c7", color: "#92400e" };
+  }
+
+  if (Number.isFinite(startsAt) && startsAt > now) {
+    return { kind: "scheduled", label: "Scheduled", background: "#dbeafe", color: "#1d4ed8" };
+  }
+
+  return { kind: "active", label: "Active", background: "#b8f7c4", color: "#177a34" };
+}

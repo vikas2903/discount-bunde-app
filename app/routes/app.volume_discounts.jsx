@@ -169,8 +169,8 @@ export const action = async ({ request }) => {
     return {
       ...(await createVolumeDiscount(admin, {
         title: config.title,
-        startsAt: new Date().toISOString(),
-        endsAt: null,
+        startsAt: String(formData.get("startsAt") || "").trim() || new Date().toISOString(),
+        endsAt: String(formData.get("endsAt") || "").trim() || null,
         functionHandle: resolveVolumeFunctionHandle(),
         config,
       })),
@@ -200,6 +200,14 @@ export default function VolumeDiscountsPage() {
     startsAt: "",
     endsAt: "",
   });
+  const now = Date.now();
+  const activeDiscountCount = useMemo(
+    () =>
+      discounts.filter(
+        (discount) => getDiscountDisplayState(discount, now).kind === "active",
+      ).length,
+    [discounts, now],
+  );
 
   const collectionTitleMap = useMemo(
     () => new Map(collections.map((collection) => [collection.id, collection.title])),
@@ -238,15 +246,19 @@ export default function VolumeDiscountsPage() {
   }, [collectionTitleMap, discounts, editingDiscountId, form.selectedCollectionIds]);
   const filteredDiscounts = useMemo(() => {
     if (activeTab === "active") {
-      return discounts.filter((discount) => discount.status === "ACTIVE");
+      return discounts.filter(
+        (discount) => getDiscountDisplayState(discount, now).kind === "active",
+      );
     }
 
     if (activeTab === "draft") {
-      return discounts.filter((discount) => discount.status !== "ACTIVE");
+      return discounts.filter(
+        (discount) => getDiscountDisplayState(discount, now).kind !== "active",
+      );
     }
 
     return discounts;
-  }, [activeTab, discounts]);
+  }, [activeTab, discounts, now]);
 
   useEffect(() => {
     if (formFetcher.data?.config) {
@@ -337,18 +349,22 @@ export default function VolumeDiscountsPage() {
   return (
     <s-page>
       <div style={{ display: "grid", gap: "1.5rem" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: "1rem",
-            flexWrap: "wrap",
-          }}
-        >
-          <h1 style={{ margin: 0, fontSize: "1.6rem", fontWeight: 700 }}>
-            Quantity-based offers
-          </h1>
+        <div style={heroStyle}>
+          <div style={{ display: "grid", gap: "0.5rem", maxWidth: "45rem" }}>
+            <div style={eyebrowStyle}>Automatic discounts</div>
+            <h1 style={{ margin: 0, fontSize: "clamp(1.6rem, 3vw, 2.1rem)", fontWeight: 750 }}>
+              Quantity-based offers
+            </h1>
+            <p style={{ margin: 0, color: "#475569", lineHeight: 1.5 }}>
+              Reward shoppers for buying more with clear quantity tiers and targeted collections.
+            </p>
+            <div style={{ display: "flex", gap: "0.55rem", flexWrap: "wrap", marginTop: "0.2rem" }}>
+              <span style={metricPillStyle}>{discounts.length} total offers</span>
+              <span style={{ ...metricPillStyle, color: "#177a34", background: "#dcfce7" }}>
+                {activeDiscountCount} active
+              </span>
+            </div>
+          </div>
           <button
             type="button"
             onClick={() => {
@@ -402,9 +418,9 @@ export default function VolumeDiscountsPage() {
           <div style={toolbarStyle}>
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
               {[
-                { key: "all", label: "All" },
-                { key: "active", label: "Active" },
-                { key: "draft", label: "Draft" },
+                { key: "all", label: `All (${discounts.length})` },
+                { key: "active", label: `Active (${activeDiscountCount})` },
+                { key: "draft", label: `Inactive (${discounts.length - activeDiscountCount})` },
               ].map((tab) => (
                 <button
                   key={tab.key}
@@ -443,6 +459,7 @@ export default function VolumeDiscountsPage() {
               <tbody>
                 {filteredDiscounts.length > 0 ? (
                   filteredDiscounts.map((discount) => {
+                    const displayState = getDiscountDisplayState(discount, now);
                     const isActive = discount.status === "ACTIVE";
                     const targetedDiscountId = String(
                       actionFetcher.formData?.get("discountId") || "",
@@ -478,12 +495,15 @@ export default function VolumeDiscountsPage() {
                           <span
                             style={{
                               ...statusPillStyle,
-                              background: isActive ? "#b8f7c4" : "#eceff3",
-                              color: isActive ? "#177a34" : "#64748b",
+                              background: displayState.background,
+                              color: displayState.color,
                             }}
                           >
-                            {isActive ? "Active" : "Draft"}
+                            {displayState.label}
                           </span>
+                          <div style={{ marginTop: "0.35rem", color: "#64748b", fontSize: "0.78rem" }}>
+                            {displayState.detail}
+                          </div>
                         </td>
                         <td style={bodyCellStyle}>{typeLabel}</td>
                         <td style={{ ...bodyCellStyle, textAlign: "right" }}>
@@ -552,7 +572,10 @@ export default function VolumeDiscountsPage() {
                 ) : (
                   <tr>
                     <td colSpan={6} style={emptyStateCellStyle}>
-                      No volume discounts found in this tab.
+                      <div style={{ display: "grid", gap: "0.45rem", justifyItems: "center" }}>
+                        <strong>No quantity offers found in this view.</strong>
+                        <span>Create an offer to give shoppers a reason to add more items.</span>
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -638,6 +661,37 @@ const panelStyle = {
   boxShadow: "0 1px 3px rgba(15, 23, 42, 0.08)",
 };
 
+const heroStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "1rem",
+  flexWrap: "wrap",
+  padding: "1.35rem",
+  border: "1px solid #dbe4f0",
+  borderRadius: "1rem",
+  background: "linear-gradient(135deg, #f8fafc 0%, #eef6f1 100%)",
+};
+
+const eyebrowStyle = {
+  color: "#0f766e",
+  fontSize: "0.72rem",
+  fontWeight: 800,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+};
+
+const metricPillStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: "999px",
+  padding: "0.35rem 0.65rem",
+  background: "#e2e8f0",
+  color: "#334155",
+  fontSize: "0.8rem",
+  fontWeight: 700,
+};
+
 const toolbarStyle = {
   padding: "0.7rem 0.8rem",
   display: "flex",
@@ -716,3 +770,46 @@ const pagerButtonStyle = {
   fontSize: "1.2rem",
   opacity: 0.45,
 };
+
+function getDiscountDisplayState(discount, now) {
+  const startsAt = Date.parse(discount.startsAt || "");
+  const endsAt = Date.parse(discount.endsAt || "");
+
+  if (discount.status !== "ACTIVE") {
+    return {
+      kind: "inactive",
+      label: "Inactive",
+      detail: "Not currently running",
+      background: "#eceff3",
+      color: "#64748b",
+    };
+  }
+
+  if (Number.isFinite(endsAt) && endsAt <= now) {
+    return {
+      kind: "expired",
+      label: "Expired",
+      detail: "Its scheduled end time has passed",
+      background: "#fef3c7",
+      color: "#92400e",
+    };
+  }
+
+  if (Number.isFinite(startsAt) && startsAt > now) {
+    return {
+      kind: "scheduled",
+      label: "Scheduled",
+      detail: `Starts ${new Date(startsAt).toLocaleString()}`,
+      background: "#dbeafe",
+      color: "#1d4ed8",
+    };
+  }
+
+  return {
+    kind: "active",
+    label: "Active",
+    detail: "Live for shoppers",
+    background: "#b8f7c4",
+    color: "#177a34",
+  };
+}

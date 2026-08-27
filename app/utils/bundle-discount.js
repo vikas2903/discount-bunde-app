@@ -5,7 +5,6 @@ export const DEFAULT_BUNDLE_CONFIG = {
   discountType: "bundle",
   bundleTiers: [
     { quantity: 2, discountType: "fixed_price", value: 799 },
-    { quantity: 3, discountType: "fixed_price", value: 999 },
   ],
   selectedCollectionIds: [],
   message: "Your bundle saving has been applied",

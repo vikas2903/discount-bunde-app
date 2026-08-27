@@ -1,5 +1,10 @@
 /* eslint-disable react/prop-types */
 import { useMemo, useState } from "react";
+import { useAppBridge } from "@shopify/app-bridge-react";
+import { DatePicker } from "antd";
+import dayjs from "dayjs";
+
+const { RangePicker } = DatePicker;
 
 export default function VolumeDiscountForm({
   fetcher,
@@ -12,7 +17,11 @@ export default function VolumeDiscountForm({
   onCancelEdit,
 }) {
   const isSaving = fetcher.state !== "idle";
-  const [collectionSearch, setCollectionSearch] = useState("");
+  const shopify = useAppBridge();
+  const [scheduleRange, setScheduleRange] = useState(() => [
+    toDayjs(editingSchedule?.startsAt) || dayjs(),
+    toDayjs(editingSchedule?.endsAt),
+  ]);
   const selectedCollectionIds = form.selectedCollectionIds;
   const selectedCollectionTitles = useMemo(() => {
     const selectedSet = new Set(selectedCollectionIds);
@@ -21,18 +30,7 @@ export default function VolumeDiscountForm({
       .filter((collection) => selectedSet.has(collection.id))
       .map((collection) => collection.title);
   }, [collections, selectedCollectionIds]);
-  const filteredCollections = useMemo(() => {
-    const query = collectionSearch.trim().toLowerCase();
-
-    if (!query) {
-      return collections;
-    }
-
-    return collections.filter((collection) => {
-      const haystack = `${collection.title} ${collection.handle || ""}`.toLowerCase();
-      return haystack.includes(query);
-    });
-  }, [collectionSearch, collections]);
+  const scheduleSummary = getScheduleSummary(scheduleRange);
 
   const updateField = (field, value) => {
     setForm((currentForm) => ({
@@ -76,25 +74,33 @@ export default function VolumeDiscountForm({
     }));
   };
 
-  const toggleCollection = (collectionId) => {
-    setForm((currentForm) => {
-      const exists = currentForm.selectedCollectionIds.includes(collectionId);
-
-      return {
-        ...currentForm,
-        selectedCollectionIds: exists
-          ? currentForm.selectedCollectionIds.filter((id) => id !== collectionId)
-          : [...currentForm.selectedCollectionIds, collectionId],
-      };
+  const openCollectionPicker = async () => {
+    const selected = await shopify.resourcePicker({
+      type: "collection",
+      action: selectedCollectionIds.length > 0 ? "select" : "add",
+      multiple: true,
+      selectionIds: selectedCollectionIds.map((id) => ({ id })),
     });
+
+    if (selected) {
+      updateField("selectedCollectionIds", selected.map((collection) => collection.id));
+    }
   };
 
   return (
     <fetcher.Form method="post">
       <input type="hidden" name="intent" value={isEditing ? "update" : "create"} />
       <input type="hidden" name="discountId" value={editingDiscountId || ""} />
-      <input type="hidden" name="startsAt" value={editingSchedule?.startsAt || ""} />
-      <input type="hidden" name="endsAt" value={editingSchedule?.endsAt || ""} />
+      <input
+        type="hidden"
+        name="startsAt"
+        value={scheduleRange[0]?.toISOString() || ""}
+      />
+      <input
+        type="hidden"
+        name="endsAt"
+        value={scheduleRange[1]?.toISOString() || ""}
+      />
       <input type="hidden" name="config" value={JSON.stringify(form)} />
 
       <s-stack direction="block" gap="base">
@@ -119,6 +125,29 @@ export default function VolumeDiscountForm({
           value={form.message}
           onInput={(event) => updateField("message", getEventValue(event))}
         />
+
+        <s-box padding="base" borderWidth="base" borderRadius="base" background="subdued">
+          <s-stack direction="block" gap="tight">
+            <s-heading>Schedule this offer</s-heading>
+            <s-paragraph>
+              Select a start date and time, with an optional end date and time.
+              Shopify activates scheduled offers automatically.
+            </s-paragraph>
+            <RangePicker
+              showTime
+              allowEmpty={[false, true]}
+              format="DD MMM YYYY, HH:mm"
+              value={scheduleRange}
+              onChange={(range) => setScheduleRange(range || [null, null])}
+              style={{ width: "100%" }}
+              placeholder={["Start date and time", "End date and time (optional)"]}
+            />
+            <div style={scheduleSummaryStyle}>
+              <strong>{scheduleSummary.label}</strong>
+              <span>{scheduleSummary.detail}</span>
+            </div>
+          </s-stack>
+        </s-box>
 
         <s-box padding="base" borderWidth="base" borderRadius="base">
           <s-stack direction="block" gap="base">
@@ -195,57 +224,23 @@ export default function VolumeDiscountForm({
               Leave this blank to include every product in your store. Choose collections to limit the offer to certain products.
             </s-paragraph>
 
-            <s-text-field
-              label="Find collections"
-              value={collectionSearch}
-              onInput={(event) => setCollectionSearch(getEventValue(event))}
-            />
-
-            {selectedCollectionTitles.length > 0 ? (
-              <s-paragraph>
-                Included collections: {selectedCollectionTitles.join(", ")}
-              </s-paragraph>
-            ) : (
-              <s-paragraph>No collections selected. Every product in your store is included.</s-paragraph>
-            )}
-
-            <s-stack direction="block" gap="tight">
-              {filteredCollections.length > 0 ? (
-                filteredCollections.map((collection) => {
-                  const checked = selectedCollectionIds.includes(collection.id);
-
-                  return (
-                    <div
-                      key={collection.id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.75rem",
-                        padding: "0.6rem 0.75rem",
-                        border: "1px solid #d9dde3",
-                        borderRadius: "0.75rem",
-                      }}
-                    >
-                      <input
-                        id={`volume-collection-${collection.id}`}
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleCollection(collection.id)}
-                        aria-label={collection.title}
-                      />
-                      <label htmlFor={`volume-collection-${collection.id}`}>
-                        <strong>{collection.title}</strong>
-                        <span style={{ color: "#667085", marginLeft: "0.5rem" }}>
-                          {collection.handle ? `/${collection.handle}` : "Collection"}
-                        </span>
-                      </label>
-                    </div>
-                  );
-                })
-              ) : (
-                <s-paragraph>No collections match your search.</s-paragraph>
-              )}
-            </s-stack>
+            <div style={collectionSelectionStyle}>
+              <div style={{ display: "grid", gap: "0.3rem", minWidth: 0 }}>
+                <strong>
+                  {selectedCollectionTitles.length > 0
+                    ? `${selectedCollectionTitles.length} collection${selectedCollectionTitles.length === 1 ? "" : "s"} selected`
+                    : "All products"}
+                </strong>
+                <span style={{ color: "#64748b", overflowWrap: "anywhere" }}>
+                  {selectedCollectionTitles.length > 0
+                    ? selectedCollectionTitles.join(", ")
+                    : "Every product in your store is eligible."}
+                </span>
+              </div>
+              <s-button type="button" variant="secondary" onClick={openCollectionPicker}>
+                {selectedCollectionTitles.length > 0 ? "Edit collections" : "Select collections"}
+              </s-button>
+            </div>
           </s-stack>
         </s-box>
 
@@ -272,3 +267,52 @@ function getEventValue(event) {
     ""
   );
 }
+
+function toDayjs(value) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = dayjs(value);
+  return parsed.isValid() ? parsed : null;
+}
+
+function getScheduleSummary(range) {
+  const [startsAt, endsAt] = range;
+
+  if (!startsAt) {
+    return { label: "Choose a start time", detail: "The offer cannot be scheduled yet." };
+  }
+
+  const startsLabel = startsAt.format("DD MMM YYYY, HH:mm");
+  if (!endsAt) {
+    return { label: "Starts automatically", detail: `${startsLabel} and continues until you turn it off.` };
+  }
+
+  return {
+    label: "Scheduled time range",
+    detail: `${startsLabel} to ${endsAt.format("DD MMM YYYY, HH:mm")}`,
+  };
+}
+
+const scheduleSummaryStyle = {
+  display: "grid",
+  gap: "0.2rem",
+  padding: "0.7rem 0.8rem",
+  borderRadius: "0.65rem",
+  background: "#eff6ff",
+  color: "#1e3a8a",
+  fontSize: "0.9rem",
+};
+
+const collectionSelectionStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "1rem",
+  flexWrap: "wrap",
+  padding: "0.85rem",
+  border: "1px solid #dbe4f0",
+  borderRadius: "0.75rem",
+  background: "#f8fafc",
+};

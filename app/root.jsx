@@ -7,6 +7,7 @@ import {
   ScrollRestoration,
   useRouteError,
 } from "react-router";
+import "antd/dist/reset.css";
 
 export default function App() {
   return (

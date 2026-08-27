@@ -1,7 +1,11 @@
 /* eslint-disable react/prop-types */
 import { useMemo, useState } from "react";
-import { useRevalidator } from "react-router";
+import { useAppBridge } from "@shopify/app-bridge-react";
+import { DatePicker } from "antd";
+import dayjs from "dayjs";
 import { DEFAULT_BUNDLE_CONFIG } from "../../utils/bundle-discount";
+
+const { RangePicker } = DatePicker;
 
 export function BundleDiscountForm({
   action = "create",
@@ -11,7 +15,7 @@ export function BundleDiscountForm({
   loading = false,
   error,
 }) {
-  const revalidator = useRevalidator();
+  const shopify = useAppBridge();
   const initialValues = useMemo(
     () => ({
       title: defaultValues?.title || "Bundle Discount",
@@ -30,26 +34,16 @@ export function BundleDiscountForm({
     }),
     [defaultValues],
   );
-  const [startDate, setStartDate] = useState(
-    getDatePart(initialValues.startsAt) || getDatePart(toDateTimeLocalValue(new Date().toISOString())),
-  );
-  const [startTime, setStartTime] = useState(
-    getTimePart(initialValues.startsAt) || "00:00",
-  );
-  const [hasEndDate, setHasEndDate] = useState(Boolean(initialValues.endsAt));
-  const [endDate, setEndDate] = useState(getDatePart(initialValues.endsAt));
-  const [endTime, setEndTime] = useState(getTimePart(initialValues.endsAt) || "00:00");
+  const [scheduleRange, setScheduleRange] = useState(() => [
+    toDayjs(initialValues.startsAt) || dayjs(),
+    toDayjs(initialValues.endsAt),
+  ]);
   const [selectedCollectionIds, setSelectedCollectionIds] = useState(
     initialValues.config.selectedCollectionIds,
   );
-  const [isCollectionPickerOpen, setIsCollectionPickerOpen] = useState(false);
-  const [collectionSearch, setCollectionSearch] = useState("");
-  const [draftSelectedCollectionIds, setDraftSelectedCollectionIds] = useState(
-    initialValues.config.selectedCollectionIds,
-  );
   const [bundleTiers, setBundleTiers] = useState(initialValues.config.bundleTiers);
-  const startsAtValue = combineDateTimeParts(startDate, startTime);
-  const endsAtValue = hasEndDate ? combineDateTimeParts(endDate, endTime) : "";
+  const startsAtValue = scheduleRange[0]?.format("YYYY-MM-DDTHH:mm") || "";
+  const endsAtValue = scheduleRange[1]?.format("YYYY-MM-DDTHH:mm") || "";
   const selectedCollectionTitles = useMemo(() => {
     const selectedIds = new Set(selectedCollectionIds);
 
@@ -61,19 +55,6 @@ export function BundleDiscountForm({
     selectedCollectionTitles.length > 0
       ? selectedCollectionTitles.join(", ")
       : "All products";
-  const filteredCollections = useMemo(() => {
-    const query = collectionSearch.trim().toLowerCase();
-
-    if (!query) {
-      return collections;
-    }
-
-    return collections.filter((collection) => {
-      const haystack = `${collection.title} ${collection.handle || ""}`.toLowerCase();
-
-      return haystack.includes(query);
-    });
-  }, [collectionSearch, collections]);
   const sortedPreviewTiers = [...bundleTiers]
     .map((tier) => ({
       quantity: Number(tier.quantity) || 0,
@@ -84,7 +65,7 @@ export function BundleDiscountForm({
     .sort((left, right) => left.quantity - right.quantity);
   const discountMessagePreview =
     String(initialValues.config.message || "").trim() || DEFAULT_BUNDLE_CONFIG.message;
-  const activeWindowLabel = hasEndDate && endsAtValue ? "Scheduled range" : "Starts and runs until removed";
+  const activeWindowLabel = endsAtValue ? "Scheduled range" : "Starts and runs until removed";
 
   return (
     <div
@@ -125,66 +106,18 @@ export function BundleDiscountForm({
               <s-stack direction="block" gap="tight">
                 <s-heading>When should this offer run?</s-heading>
                 <s-paragraph>
-                  Choose a start date and time. Turn on an end date only when
-                  you want the offer to stop automatically.
+                  Select when the offer starts and, optionally, when it ends.
+                  Shopify activates scheduled offers at the selected start time.
                 </s-paragraph>
-                <div
-                  style={{
-                    display: "grid",
-                    gap: "0.75rem",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                  }}
-                >
-                  <s-text-field
-                    label="Start date"
-                    type="date"
-                    value={startDate}
-                    onInput={(event) => setStartDate(event.currentTarget.value)}
-                  />
-                  <s-text-field
-                    label="Start time"
-                    type="time"
-                    value={startTime}
-                    onInput={(event) => setStartTime(event.currentTarget.value)}
-                  />
-                </div>
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                    cursor: "pointer",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={hasEndDate}
-                    onChange={(event) => setHasEndDate(event.currentTarget.checked)}
-                  />
-                  <span>Stop this offer on a specific date</span>
-                </label>
-                {hasEndDate ? (
-                  <div
-                    style={{
-                      display: "grid",
-                      gap: "0.75rem",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                    }}
-                  >
-                    <s-text-field
-                      label="End date"
-                      type="date"
-                      value={endDate}
-                      onInput={(event) => setEndDate(event.currentTarget.value)}
-                    />
-                    <s-text-field
-                      label="End time"
-                      type="time"
-                      value={endTime}
-                      onInput={(event) => setEndTime(event.currentTarget.value)}
-                    />
-                  </div>
-                ) : null}
+                <RangePicker
+                  showTime
+                  allowEmpty={[false, true]}
+                  format="DD MMM YYYY, HH:mm"
+                  value={scheduleRange}
+                  onChange={(range) => setScheduleRange(range || [null, null])}
+                  style={{ width: "100%" }}
+                  placeholder={["Start date and time", "End date and time (optional)"]}
+                />
               </s-stack>
             </s-box>
           </s-stack>
@@ -342,125 +275,6 @@ export function BundleDiscountForm({
                   </s-button>
                 </div>
 
-                {isCollectionPickerOpen ? (
-                  <div
-                    style={{
-                      position: "fixed",
-                      inset: 0,
-                      background: "rgba(15, 23, 42, 0.32)",
-                      display: "grid",
-                      placeItems: "center",
-                      padding: "1rem",
-                      zIndex: 1000,
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: "min(700px, 100%)",
-                        maxHeight: "85vh",
-                        background: "#ffffff",
-                        borderRadius: "1.2rem",
-                        border: "1px solid #d7dbe0",
-                        boxShadow: "0 24px 50px rgba(15, 23, 42, 0.18)",
-                        overflow: "hidden",
-                        display: "grid",
-                        gridTemplateRows: "auto auto minmax(0, 1fr) auto",
-                      }}
-                    >
-                      <div
-                        style={{
-                          padding: "1rem 1.1rem",
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          gap: "1rem",
-                          borderBottom: "1px solid #e5e7eb",
-                        }}
-                      >
-                        <h3 style={{ margin: 0, fontSize: "1.35rem", fontWeight: 700 }}>
-                          Add collections
-                        </h3>
-                        <button
-                          type="button"
-                          onClick={closeCollectionPicker}
-                          style={pickerCloseButtonStyle}
-                        >
-                          x
-                        </button>
-                      </div>
-
-                      <div style={{ padding: "0.85rem 1rem", borderBottom: "1px solid #e5e7eb" }}>
-                        <input
-                          type="text"
-                          value={collectionSearch}
-                          onChange={(event) => setCollectionSearch(event.currentTarget.value)}
-                          placeholder="Search collections"
-                          style={pickerSearchInputStyle}
-                        />
-                      </div>
-
-                      <div style={{ overflow: "auto" }}>
-                        {filteredCollections.length > 0 ? (
-                          filteredCollections.map((collection) => {
-                            const isChecked = draftSelectedCollectionIds.includes(collection.id);
-
-                            return (
-                              <label
-                                key={collection.id}
-                                style={pickerRowStyle}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() => toggleDraftCollection(collection.id)}
-                                />
-                                <div style={pickerImageStyle}>IMG</div>
-                                <div style={{ display: "grid", gap: "0.2rem" }}>
-                                  <span style={{ fontWeight: 600 }}>{collection.title}</span>
-                                  <span style={{ color: "#64748b", fontSize: "0.9rem" }}>
-                                    {collection.handle ? `/${collection.handle}` : "Collection"}
-                                  </span>
-                                </div>
-                              </label>
-                            );
-                          })
-                        ) : (
-                          <div style={{ padding: "1rem", color: "#64748b" }}>
-                            No collections match your search.
-                          </div>
-                        )}
-                      </div>
-
-                      <div
-                        style={{
-                          padding: "1rem",
-                          borderTop: "1px solid #e5e7eb",
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          gap: "1rem",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <span style={{ color: "#475569", fontSize: "0.95rem" }}>
-                          {draftSelectedCollectionIds.length}/{collections.length} collections selected
-                        </span>
-                        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-                          <s-button type="button" variant="secondary" onClick={closeCollectionPicker}>
-                            Cancel
-                          </s-button>
-                          <s-button
-                            type="button"
-                            variant="primary"
-                            onClick={applyDraftCollections}
-                          >
-                            Add
-                          </s-button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
               </div>
             ) : (
               <s-paragraph>
@@ -496,7 +310,7 @@ export function BundleDiscountForm({
               <SummaryItem
                 label="When it runs"
                 value={activeWindowLabel}
-                detail={`${startDate || "Not set"} ${startTime || ""}`.trim()}
+                detail={startsAtValue ? dayjs(startsAtValue).format("DD MMM YYYY, HH:mm") : "Not set"}
               />
               <SummaryItem
                 label="Eligible products"
@@ -606,31 +420,17 @@ export function BundleDiscountForm({
     );
   }
 
-  function openCollectionPicker() {
-    revalidator.revalidate();
-    setDraftSelectedCollectionIds(selectedCollectionIds);
-    setCollectionSearch("");
-    setIsCollectionPickerOpen(true);
-  }
+  async function openCollectionPicker() {
+    const selected = await shopify.resourcePicker({
+      type: "collection",
+      action: selectedCollectionIds.length > 0 ? "select" : "add",
+      multiple: true,
+      selectionIds: selectedCollectionIds.map((id) => ({ id })),
+    });
 
-  function closeCollectionPicker() {
-    setDraftSelectedCollectionIds(selectedCollectionIds);
-    setCollectionSearch("");
-    setIsCollectionPickerOpen(false);
-  }
-
-  function applyDraftCollections() {
-    setSelectedCollectionIds(draftSelectedCollectionIds);
-    setCollectionSearch("");
-    setIsCollectionPickerOpen(false);
-  }
-
-  function toggleDraftCollection(collectionId) {
-    setDraftSelectedCollectionIds((currentIds) =>
-      currentIds.includes(collectionId)
-        ? currentIds.filter((id) => id !== collectionId)
-        : [...currentIds, collectionId],
-    );
+    if (selected) {
+      setSelectedCollectionIds(selected.map((collection) => collection.id));
+    }
   }
 }
 
@@ -695,62 +495,14 @@ function toDateTimeLocalValue(value) {
   return localDate.toISOString().slice(0, 16);
 }
 
-function getDatePart(value) {
-  return value ? value.slice(0, 10) : "";
-}
-
-function getTimePart(value) {
-  return value ? value.slice(11, 16) : "";
-}
-
-function combineDateTimeParts(date, time) {
-  if (!date) {
-    return "";
+function toDayjs(value) {
+  if (!value) {
+    return null;
   }
 
-  return `${date}T${time || "00:00"}`;
+  const parsed = dayjs(value);
+  return parsed.isValid() ? parsed : null;
 }
-
-const pickerCloseButtonStyle = {
-  border: "none",
-  background: "transparent",
-  color: "#64748b",
-  fontSize: "1.35rem",
-  lineHeight: 1,
-  cursor: "pointer",
-};
-
-const pickerSearchInputStyle = {
-  width: "100%",
-  border: "1px solid #cbd5e1",
-  borderRadius: "0.85rem",
-  padding: "0.85rem 1rem",
-  fontSize: "1rem",
-  outline: "none",
-};
-
-const pickerRowStyle = {
-  display: "grid",
-  gridTemplateColumns: "auto auto minmax(0, 1fr)",
-  alignItems: "center",
-  gap: "0.85rem",
-  padding: "0.9rem 1rem",
-  borderBottom: "1px solid #eef2f7",
-  cursor: "pointer",
-};
-
-const pickerImageStyle = {
-  width: "2.8rem",
-  height: "2.8rem",
-  borderRadius: "0.8rem",
-  border: "1px solid #e2e8f0",
-  background: "#ffffff",
-  display: "grid",
-  placeItems: "center",
-  color: "#94a3b8",
-  fontSize: "0.85rem",
-  fontWeight: 700,
-};
 
 function createEmptyTier(currentTiers) {
   const highestQuantity = currentTiers.reduce((max, tier) => {
