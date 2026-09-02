@@ -3,81 +3,68 @@ import { useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 import { checkSubscription, getPlanDetails } from "../utils/billing.server";
 
-const SUPPORT_EMAIL = "vikasprasad2903@gmail.com";
+const DEFAULT_SUPPORT_EMAIL = "vikasprasad2903@gmail.com";
 
 export const loader = async ({ request }) => {
-  const { billing, session } = await authenticate.admin(request);
+  const { billing } = await authenticate.admin(request);
   const subscription = await checkSubscription(billing);
-  const apiKey = process.env.SHOPIFY_API_KEY || "";
+
   return {
     plan: getPlanDetails(subscription),
-    themeEditorUrl: `https://${session.shop}/admin/themes/current/editor?template=page&addAppBlockId=${apiKey}/bundle&target=newAppsSection`,
+    supportEmail: process.env.SUPPORT_EMAIL?.trim() || DEFAULT_SUPPORT_EMAIL,
   };
 };
 
 export default function HelpPage() {
-  const { plan, themeEditorUrl } = useLoaderData();
+  const { plan, supportEmail } = useLoaderData();
 
   return (
-    <s-page heading="Help, support & storefront setup">
+    <s-page heading="Help & support">
       <div style={pageStyle}>
         <section style={heroStyle}>
-          <div style={heroIconStyle} aria-hidden="true">?</div>
-          <div style={{ display: "grid", gap: "0.3rem" }}>
-            <h2 style={{ margin: 0, fontSize: "1.35rem" }}>We are here to help</h2>
-            <p style={{ margin: 0, color: "rgba(255,255,255,0.9)" }}>Questions about discounts, your bundle page, or checkout setup?</p>
-            <a href={`mailto:${SUPPORT_EMAIL}`} style={emailStyle}>Email {SUPPORT_EMAIL}</a>
+          <div>
+            <div style={eyebrowStyle}>Need a hand?</div>
+            <h2 style={heroTitleStyle}>We’ll help you get your offer live.</h2>
+            <p style={heroCopyStyle}>Email us with your store URL, the offer name, and a screenshot of the issue.</p>
+          </div>
+          <div style={supportContactStyle}>
+            <a href={`mailto:${supportEmail}`} style={emailButtonStyle}>Email support</a>
+            <a href={`mailto:${supportEmail}`} style={emailAddressStyle}>{supportEmail}</a>
           </div>
         </section>
 
         <section style={cardStyle}>
-          <div style={sectionHeadingStyle}><span style={sectionIconStyle}>1</span><div><div style={eyebrowStyle}>Create an offer</div><h3 style={titleStyle}>How to create a discount</h3></div></div>
-          <ol style={stepsStyle}>
-            <li>Open <strong>Quantity offers</strong> for a buy-more-save-more promotion, or <strong>Bundle offers</strong> for a fixed-price mix-and-match bundle.</li>
-            <li>Give the offer a clear name, select eligible collections, and add its quantity and saving rules.</li>
-            <li>Save the offer, then test it in your cart before sharing it with shoppers.</li>
-          </ol>
-          <p style={tipStyle}>Free includes one active quantity offer. Bundle offers and storefront setup require Pro.</p>
+          <div><div style={eyebrowStyle}>Start here</div><h2 style={titleStyle}>Create your first offer</h2></div>
+          <div style={stepsGridStyle}>
+            <Step number="1" title="Choose an offer" copy="Use Quantity offers for buy-more-save-more. Use Bundle offers for fixed-price bundles." />
+            <Step number="2" title="Save and activate" copy="Select your products or collection, add the saving, then make the offer active." />
+            <Step number="3" title="Test it" copy="Add qualifying products to your cart and confirm the discount appears before sharing it." />
+          </div>
+          <div style={linkRowStyle}>
+            <s-link href="/app/volume_discounts">Open Quantity offers</s-link>
+            <s-link href={plan.isPro ? "/app/disocunt_bundle" : "/app/billing"}>{plan.isPro ? "Open Bundle offers" : "Upgrade for Bundle offers"}</s-link>
+          </div>
         </section>
 
         <section style={cardStyle}>
-          <div style={sectionHeadingStyle}><span style={sectionIconStyle}>2</span><div><div style={eyebrowStyle}>Show it on your store</div><h3 style={titleStyle}>Add the Bundle Section theme block</h3></div></div>
-          {!plan.isPro ? <s-banner tone="info"><s-paragraph>Start the 14-day Pro trial to add the storefront bundle page.</s-paragraph></s-banner> : null}
-          <ol style={stepsStyle}>
-            <li>Create a collection containing only the products included in the bundle.</li>
-            <li>Create a fixed-price bundle offer in this app and select that same collection.</li>
-            <li>Open the theme editor, save the Bundle Section on a page template such as <code>page.bundle</code>, and select the same collection.</li>
-            <li>Create a Shopify Page, assign the page template, then add that page to your store navigation.</li>
-            <li>Test the bundle with an empty cart and again with unrelated cart products.</li>
-          </ol>
-          {plan.isPro ? <s-link href={themeEditorUrl} target="_top">Open theme editor and add Bundle Section</s-link> : <s-link href="/app/billing">Start 14-day Pro trial</s-link>}
-          <p style={tipStyle}>Use the same collection, quantity, and fixed price in the app and theme block. Shopify calculates the final discount securely at cart and checkout.</p>
+          <div><div style={eyebrowStyle}>Show offers on your store</div><h2 style={titleStyle}>Website setup</h2></div>
+          <p style={copyStyle}>Add the app block in your Shopify theme editor, then test it on your live product or bundle page.</p>
+          <s-link href="/app/storefront_setup">Open Website Template Setup</s-link>
         </section>
 
         <section style={cardStyle}>
-          <div style={sectionHeadingStyle}><span style={sectionIconStyle}>3</span><div><div style={eyebrowStyle}>Advanced checkout</div><h3 style={titleStyle}>GoKwik and Shiprocket setup</h3></div></div>
-          <p style={copyStyle}>In the Bundle Section settings, select Custom checkout only when GoKwik or Shiprocket has supplied an approved storefront snippet. The app adds the selected items to Shopify cart first, then runs that provider code.</p>
-          <s-banner tone="warning"><s-paragraph>Test provider code on a duplicate theme first. Never paste private API keys or change product prices in the snippet.</s-paragraph></s-banner>
+          <div><div style={eyebrowStyle}>Plan & billing</div><h2 style={titleStyle}>{plan.isPro ? "Your Pro plan is active" : "You are on the Free plan"}</h2></div>
+          <p style={copyStyle}>{plan.isPro ? "Manage or cancel your subscription in Shopify Admin → Settings → Billing." : "The Free plan includes one active quantity offer. Start a 14-day Pro trial for bundle offers and unlimited quantity offers."}</p>
+          <s-link href="/app/billing">Open Plans & billing</s-link>
         </section>
 
         <section style={cardStyle}>
-          <div style={sectionHeadingStyle}><span style={sectionIconStyle}>+</span><div><div style={eyebrowStyle}>Product page</div><h3 style={titleStyle}>Show quantity offers next to Add to cart</h3></div></div>
-          <ol style={stepsStyle}>
-            <li>Go to Online Store, Themes, and Customize. Open the Default product template.</li>
-            <li>In the product information section, choose Add block, then Apps, then Quantity offers.</li>
-            <li>Set the same tiers, saving types, and values as the active quantity offer in this app.</li>
-            <li>Choose whether the shopper goes to cart, checkout, or your approved GoKwik or Shiprocket flow after adding the offer.</li>
-          </ol>
-          <p style={tipStyle}>The block adds the selected quantity to cart. Shopify then applies your active automatic quantity discount when the cart qualifies.</p>
-        </section>
-
-        <section style={cardStyle}>
-          <div style={sectionHeadingStyle}><span style={sectionIconStyle}>FAQ</span><div><div style={eyebrowStyle}>Quick answers</div><h3 style={titleStyle}>Frequently asked questions</h3></div></div>
+          <div><div style={eyebrowStyle}>Quick fixes</div><h2 style={titleStyle}>Common questions</h2></div>
           <div style={faqGridStyle}>
-            <Faq question="Why is my discount not showing?" answer="Check that it is active, the cart meets its quantity rule, and the product is in the selected collection." />
-            <Faq question="Can shoppers use a discount code?" answer="These offers are automatic. Shoppers do not need to enter a code when their cart qualifies." />
-            <Faq question="Why does the bundle page show a different price?" answer="The app discount controls checkout. Ensure the collection, quantity, and fixed price match the theme block settings." />
-            <Faq question="How do I cancel Pro?" answer="Open Shopify Admin, then Settings and Billing. Cancel there; future use returns to the Free plan after the paid period." />
+            <Faq question="My discount is not showing" answer="Check that the offer is active, the product is in the selected collection, and the cart meets the quantity rule." />
+            <Faq question="Do shoppers need a discount code?" answer="No. Eligible offers are automatic. Shopify applies the discount when the cart qualifies." />
+            <Faq question="The website block is not visible" answer="Open Website Template Setup, add the app block to the correct template, and save the theme." />
+            <Faq question="I still need help" answer={`Email ${supportEmail}. Include your store URL, offer name, and a screenshot so we can investigate quickly.`} />
           </div>
         </section>
       </div>
@@ -85,5 +72,26 @@ export default function HelpPage() {
   );
 }
 
-function Faq({ question, answer }) { return <details style={faqStyle}><summary style={faqQuestionStyle}>{question}</summary><p style={copyStyle}>{answer}</p></details>; }
-const pageStyle = { display: "grid", gap: "1rem", maxWidth: "900px" }; const heroStyle = { display: "flex", alignItems: "center", gap: "1rem", padding: "1.2rem", borderRadius: "1rem", background: "linear-gradient(135deg, #0f172a, #065f46)", color: "#fff" }; const heroIconStyle = { width: "3rem", height: "3rem", borderRadius: "50%", display: "grid", placeItems: "center", fontWeight: 800, fontSize: "1.4rem", background: "rgba(255,255,255,0.16)" }; const emailStyle = { color: "#fff", fontWeight: 800, width: "fit-content" }; const cardStyle = { display: "grid", gap: "0.9rem", padding: "1.1rem", border: "1px solid #e2e8f0", borderRadius: "1rem", background: "#fff" }; const sectionHeadingStyle = { display: "flex", alignItems: "center", gap: "0.75rem" }; const sectionIconStyle = { minWidth: "2.2rem", height: "2.2rem", borderRadius: "0.65rem", display: "grid", placeItems: "center", padding: "0 0.35rem", background: "#dcfce7", color: "#047857", fontWeight: 800, fontSize: "0.75rem" }; const eyebrowStyle = { color: "#047857", fontSize: "0.72rem", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.05em" }; const titleStyle = { margin: "0.15rem 0 0", fontSize: "1.1rem" }; const stepsStyle = { margin: 0, paddingLeft: "1.3rem", display: "grid", gap: "0.55rem", lineHeight: 1.55, color: "#334155" }; const copyStyle = { margin: 0, color: "#475569", lineHeight: 1.55 }; const tipStyle = { margin: 0, padding: "0.75rem", borderRadius: "0.65rem", background: "#f0fdf4", color: "#166534", fontSize: "0.86rem" }; const faqGridStyle = { display: "grid", gap: "0.65rem" }; const faqStyle = { padding: "0.85rem", border: "1px solid #e2e8f0", borderRadius: "0.7rem" }; const faqQuestionStyle = { cursor: "pointer", fontWeight: 750, color: "#0f172a" };
+function Step({ number, title, copy }) { return <div style={stepStyle}><span style={stepNumberStyle}>{number}</span><div><h3 style={stepTitleStyle}>{title}</h3><p style={copyStyle}>{copy}</p></div></div>; }
+function Faq({ question, answer }) { return <details style={faqStyle}><summary style={faqQuestionStyle}>{question}</summary><p style={faqAnswerStyle}>{answer}</p></details>; }
+
+const pageStyle = { display: "grid", gap: "1rem", maxWidth: "860px" };
+const heroStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap", padding: "1.25rem", borderRadius: "1rem", background: "linear-gradient(135deg, #0f172a, #065f46)", color: "#fff" };
+const eyebrowStyle = { color: "#047857", fontSize: "0.72rem", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.05em" };
+const heroTitleStyle = { margin: "0.2rem 0", fontSize: "1.35rem" };
+const heroCopyStyle = { margin: 0, color: "rgba(255,255,255,0.9)" };
+const emailButtonStyle = { display: "inline-flex", alignItems: "center", minHeight: "2.5rem", padding: "0 0.9rem", borderRadius: "0.6rem", background: "#fff", color: "#065f46", fontWeight: 800, textDecoration: "none" };
+const supportContactStyle = { display: "grid", gap: "0.4rem", justifyItems: "start" };
+const emailAddressStyle = { color: "rgba(255,255,255,0.9)", fontSize: "0.86rem" };
+const cardStyle = { display: "grid", gap: "0.85rem", padding: "1.1rem", border: "1px solid #e2e8f0", borderRadius: "1rem", background: "#fff" };
+const titleStyle = { margin: "0.15rem 0 0", fontSize: "1.15rem", color: "#0f172a" };
+const copyStyle = { margin: 0, color: "#475569", lineHeight: 1.55 };
+const stepsGridStyle = { display: "grid", gap: "0.8rem" };
+const stepStyle = { display: "flex", gap: "0.75rem", alignItems: "flex-start" };
+const stepNumberStyle = { flex: "0 0 auto", width: "1.8rem", height: "1.8rem", display: "grid", placeItems: "center", borderRadius: "50%", background: "#dcfce7", color: "#047857", fontWeight: 800 };
+const stepTitleStyle = { margin: "0 0 0.15rem", color: "#0f172a", fontSize: "1rem" };
+const linkRowStyle = { display: "flex", gap: "1rem", flexWrap: "wrap" };
+const faqGridStyle = { display: "grid", gap: "0.6rem" };
+const faqStyle = { padding: "0.8rem", border: "1px solid #e2e8f0", borderRadius: "0.7rem" };
+const faqQuestionStyle = { cursor: "pointer", color: "#0f172a", fontWeight: 750 };
+const faqAnswerStyle = { margin: "0.6rem 0 0", color: "#475569", lineHeight: 1.55 };

@@ -5,6 +5,8 @@ import { authenticate } from "../shopify.server";
 import { listBundleDiscounts } from "../services/bundle-discount.server";
 import { listVolumeDiscounts } from "../services/volume-discount.server";
 
+const SUPPORT_EMAIL = "vikasprasad2903@gmail.com";
+
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
   const [themesResult, bundleResult, quantityResult] = await Promise.allSettled([
@@ -54,9 +56,9 @@ export default function StorefrontSetupPage() {
       <div style={pageStyle}>
         <section style={heroStyle}>
           <div>
-            <div style={eyebrowStyle}>Theme extension</div>
-            <h2 style={{ margin: "0.25rem 0", fontSize: "1.45rem" }}>Choose a theme, then add your offer block</h2>
-            <p style={heroCopyStyle}>Use a page template for mix-and-match bundles, or a product template for quantity offers. Your app discounts remain the source of truth at checkout.</p>
+            <div style={heroEyebrowStyle}>Easy setup</div>
+            <h2 style={{ margin: "0.25rem 0", fontSize: "1.45rem" }}>Add your offer to your store in 3 simple steps</h2>
+            <p style={heroCopyStyle}>You do not need to edit code. Choose a theme, open the right template, then save it in Shopify’s theme editor.</p>
           </div>
         </section>
 
@@ -68,25 +70,40 @@ export default function StorefrontSetupPage() {
           <Metric label="Store themes" value={themes.length} detail={`${liveThemes.length} live theme`} />
         </div>
 
-        <section style={sectionStyle}>
-          <div><div style={eyebrowStyle}>Step 1</div><h3 style={titleStyle}>Select a theme</h3><p style={copyStyle}>Choose one theme to set up. Live themes are visible to shoppers; preview and development themes are best for testing.</p></div>
-          {themes.length ? <>
-            <label style={selectLabelStyle}>Theme to customize<select value={selectedThemeId} onChange={(event) => setSelectedThemeId(event.target.value)} style={selectStyle}>{themes.map((theme) => <option key={theme.id} value={theme.id}>{theme.name} — {theme.role === "MAIN" ? "Live" : theme.role === "DEVELOPMENT" ? "Development" : "Preview"}</option>)}</select></label>
-            {selectedTheme ? <ThemeCard theme={selectedTheme} shop={shop} apiKey={apiKey} /> : null}
-          </> : <p style={copyStyle}>No themes were returned. Check that the app has permission to read themes, then reopen this page.</p>}
+        <section style={quickStartStyle}>
+          <SetupStep number="1" title="Choose a theme" detail="Start with a preview or development theme if possible. You can test safely before changing your live store." />
+          <SetupStep number="2" title="Pick your offer type" detail="Use Bundle templates for a mix-and-match bundle page. Use Quantity offers for a buy-more-save-more product page." />
+          <SetupStep number="3" title="Save and test" detail="In Shopify’s editor, add the block, choose its settings, click Save, and test the offer before publishing." />
         </section>
 
         <section style={sectionStyle}>
-          <div><div style={eyebrowStyle}>Step 2</div><h3 style={titleStyle}>Choose the storefront block</h3><p style={copyStyle}>Click a button in the selected theme panel. You will be redirected to Shopify’s theme editor with the block ready to add. Use the editor’s left-side settings to customize colors, collection, offers, text, and checkout button, then save.</p></div>
+          <div><div style={eyebrowStyle}>Step 1</div><h3 style={titleStyle}>Choose the theme you want to change</h3><p style={copyStyle}>A preview or development theme is safest for testing. Your live theme is already visible to customers.</p></div>
+          {themes.length ? <>
+            <label style={selectLabelStyle}>Theme to customize<select value={selectedThemeId} onChange={(event) => setSelectedThemeId(event.target.value)} style={selectStyle}>{themes.map((theme) => <option key={theme.id} value={theme.id}>{theme.name} — {theme.role === "MAIN" ? "Live" : theme.role === "DEVELOPMENT" ? "Development" : "Preview"}</option>)}</select></label>
+            {selectedTheme ? <ThemeCard theme={selectedTheme} shop={shop} apiKey={apiKey} /> : null}
+          </> : <p style={copyStyle}>We could not find a theme. Please reopen this page, or email us and we’ll help.</p>}
+        </section>
+
+        <section style={sectionStyle}>
+          <div><div style={eyebrowStyle}>Step 2</div><h3 style={titleStyle}>Choose what you want to show shoppers</h3><p style={copyStyle}>Use the buttons above to open Shopify’s theme editor. There, add the offer block, choose your products and colors, then click Save.</p></div>
           <div style={templateGridStyle}>
-            <TemplateCard name="Bundle template 1" type="Page template" description="A mix-and-match collection bundle with live selected products, savings, and checkout summary." steps={["Create a Page template in the theme editor.", "Add Bundle template 1 and select the bundle collection.", "Create a Shopify Page and assign this page template."]} />
-            <TemplateCard name="Bundle template 2" type="Page template" description="An alternative bundle layout for presenting the same collection-based offer to shoppers." steps={["Create a Page template in the theme editor.", "Add Bundle template 2 and configure its collection and tiers.", "Assign the page template to a Shopify Page."]} />
-            <TemplateCard name="Quantity offers" type="Product template" description="A buy-more-save-more offer displayed on individual product pages." steps={["Create a Product template in the theme editor.", "Add Quantity offers in Product information.", "Assign the product template to the relevant products in Shopify Admin."]} />
+            <TemplateCard name="Bundle template 1" type="For a bundle page" description="Let shoppers choose several products from one collection to make a bundle." steps={["Create a Page template.", "Add Bundle template 1 and choose the collection.", "Create a Shopify Page and select this template."]} />
+            <TemplateCard name="Bundle template 2" type="For a bundle page" description="A different look for the same type of mix-and-match bundle offer." steps={["Create a Page template.", "Add Bundle template 2 and choose the collection.", "Create a Shopify Page and select this template."]} />
+            <TemplateCard name="Quantity offers" type="For a product page" description="Show quantity savings, such as buy 2 and save more, on a product page." steps={["Create a Product template.", "Add Quantity offers to Product information.", "Assign the template to the products you want."]} />
           </div>
         </section>
 
         <section style={tipStyle}>
-          <strong>Before publishing:</strong> match the collection, quantities, discount type, and values in the theme block with the active offer created in this app. Test the template on an unpublished theme before applying it to your live theme.
+          <strong>Step 3 — Save and check:</strong> make sure the products, quantities, and savings in the block match the offer you created in this app. Then add the offer to cart to make sure it works before publishing.
+        </section>
+
+        <section style={supportStyle}>
+          <div>
+            <div style={eyebrowStyle}>Need help?</div>
+            <h3 style={titleStyle}>Having trouble setting up your website template?</h3>
+            <p style={copyStyle}>Email us with your store URL, theme name, and a short description of the issue. We’ll help you get the block set up.</p>
+          </div>
+          <a href={`mailto:${SUPPORT_EMAIL}`} style={supportLinkStyle}>Email {SUPPORT_EMAIL}</a>
         </section>
       </div>
     </s-page>
@@ -102,9 +119,9 @@ function ThemeCard({ theme, shop, apiKey }) {
   const productUrl = `${editorBase}?template=product&addAppBlockId=${apiKey}/quantity_offers&target=mainSection`;
   return <article style={{ ...themeCardStyle, borderColor: isLive ? "#059669" : "#dbe4ea" }}>
     <div style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", alignItems: "start" }}><strong>{theme.name}</strong><span style={{ ...statusStyle, background: isLive ? "#d1fae5" : "#eff6ff", color: isLive ? "#047857" : "#1d4ed8" }}>{status}</span></div>
-    <p style={copyStyle}>{isLive ? "This is currently visible to shoppers." : "This theme is not currently live, so you can safely customize and test it first."}</p>
-    <div style={buttonRowStyle}><a href={pageUrl} target="_top" style={buttonStyle}>Set up Bundle template 1</a><a href={bundleTwoUrl} target="_top" style={secondaryButtonStyle}>Set up Bundle template 2</a><a href={productUrl} target="_top" style={secondaryButtonStyle}>Set up Quantity offers</a></div>
-    <p style={editorHintStyle}>Each option opens the theme editor. Add the block, customize its settings, and click Save when finished.</p>
+    <p style={copyStyle}>{isLive ? "This theme is live, so any saved changes can be visible to shoppers." : "This theme is not live yet, so it is a safe place to test."}</p>
+    <div style={buttonRowStyle}><a href={pageUrl} target="_top" style={buttonStyle}>Set up a bundle page</a><a href={bundleTwoUrl} target="_top" style={secondaryButtonStyle}>Set up bundle page (style 2)</a><a href={productUrl} target="_top" style={secondaryButtonStyle}>Set up quantity offers</a></div>
+    <p style={editorHintStyle}>Each button opens Shopify’s theme editor. Add the block, select the settings you want, and click Save.</p>
   </article>;
 }
 
@@ -112,10 +129,15 @@ function TemplateCard({ name, type, description, steps }) {
   return <article style={templateCardStyle}><span style={typeStyle}>{type}</span><h4 style={{ margin: "0.6rem 0 0.4rem" }}>{name}</h4><p style={copyStyle}>{description}</p><ol style={stepsStyle}>{steps.map((step) => <li key={step}>{step}</li>)}</ol></article>;
 }
 
+function SetupStep({ number, title, detail }) {
+  return <article style={setupStepStyle}><span style={stepNumberStyle}>{number}</span><div><strong style={{ color: "#0f172a" }}>{title}</strong><p style={{ ...copyStyle, marginTop: "0.25rem", fontSize: "0.84rem" }}>{detail}</p></div></article>;
+}
+
 function Metric({ label, value, detail }) { return <article style={metricStyle}><span style={{ color: "#64748b", fontSize: "0.84rem", fontWeight: 700 }}>{label}</span><strong style={{ display: "block", fontSize: "1.7rem", marginTop: "0.25rem" }}>{value}</strong><span style={{ color: "#64748b", fontSize: "0.8rem" }}>{detail}</span></article>; }
 
 const pageStyle = { display: "grid", gap: "1rem", maxWidth: "1120px" };
 const heroStyle = { padding: "1.35rem", borderRadius: "1rem", background: "linear-gradient(135deg, #0f172a, #075985)", color: "#fff" };
+const heroEyebrowStyle = { color: "#a7f3d0", fontSize: "0.72rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" };
 const heroCopyStyle = { margin: 0, maxWidth: "720px", color: "#e0f2fe", lineHeight: 1.55 };
 const eyebrowStyle = { color: "#047857", fontSize: "0.72rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" };
 const titleStyle = { margin: "0.2rem 0 0", fontSize: "1.15rem" };
@@ -123,6 +145,9 @@ const copyStyle = { margin: 0, color: "#475569", lineHeight: 1.5, fontSize: "0.9
 const metricGridStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.8rem" };
 const metricStyle = { padding: "1rem", background: "#fff", border: "1px solid #dbe4ea", borderRadius: "0.85rem" };
 const sectionStyle = { display: "grid", gap: "1rem", padding: "1.15rem", background: "#fff", border: "1px solid #dbe4ea", borderRadius: "1rem" };
+const quickStartStyle = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.75rem" };
+const setupStepStyle = { display: "flex", gap: "0.7rem", padding: "0.9rem", border: "1px solid #dbe4ea", borderRadius: "0.8rem", background: "#fff" };
+const stepNumberStyle = { display: "grid", flex: "0 0 auto", placeItems: "center", width: "1.65rem", height: "1.65rem", borderRadius: "50%", background: "#047857", color: "#fff", fontSize: "0.8rem", fontWeight: 800 };
 const themeCardStyle = { display: "grid", gap: "0.8rem", padding: "1rem", border: "1px solid", borderRadius: "0.8rem", background: "#fff" };
 const statusStyle = { flex: "0 0 auto", padding: "0.25rem 0.5rem", borderRadius: "999px", fontSize: "0.72rem", fontWeight: 800 };
 const buttonRowStyle = { display: "flex", gap: "0.45rem", flexWrap: "wrap" };
@@ -136,3 +161,5 @@ const typeStyle = { padding: "0.2rem 0.5rem", borderRadius: "999px", background:
 const stepsStyle = { margin: "0.8rem 0 0", paddingLeft: "1.2rem", display: "grid", gap: "0.45rem", color: "#334155", fontSize: "0.85rem", lineHeight: 1.45 };
 const tipStyle = { padding: "1rem", borderRadius: "0.8rem", background: "#ecfdf5", color: "#065f46", lineHeight: 1.5 };
 const editorHintStyle = { margin: 0, padding: "0.65rem 0.75rem", borderRadius: "0.55rem", background: "#f0f9ff", color: "#075985", fontSize: "0.82rem", lineHeight: 1.45 };
+const supportStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap", padding: "1.1rem", borderRadius: "0.85rem", border: "1px solid #bfdbfe", background: "#eff6ff" };
+const supportLinkStyle = { display: "inline-flex", alignItems: "center", minHeight: "2.5rem", padding: "0 0.85rem", borderRadius: "0.55rem", background: "#1d4ed8", color: "#fff", fontWeight: 750, fontSize: "0.86rem", textDecoration: "none" };

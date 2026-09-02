@@ -5,7 +5,7 @@ export const SUBSCRIPTION_PLAN = {
   trialDays: 14,
   amount: 10,
   currencyCode: "USD",
-  intervalLabel: "30 days",
+  intervalLabel: "month",
 };
 
 // Production billing is the safe default. Enable test charges explicitly for a development store.

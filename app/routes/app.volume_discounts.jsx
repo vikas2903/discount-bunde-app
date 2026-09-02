@@ -357,6 +357,7 @@ export default function VolumeDiscountsPage() {
             </h1>
             <p style={{ margin: 0, color: "#475569", lineHeight: 1.5 }}>
               Reward shoppers for buying more with clear quantity tiers and targeted collections.
+              Shopify applies qualifying offers automatically, with no discount code required.
             </p>
             <div style={{ display: "flex", gap: "0.55rem", flexWrap: "wrap", marginTop: "0.2rem" }}>
               <span style={metricPillStyle}>{discounts.length} total offers</span>

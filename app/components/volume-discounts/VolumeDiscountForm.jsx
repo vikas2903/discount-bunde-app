@@ -110,7 +110,7 @@ export default function VolumeDiscountForm({
             <s-paragraph>1. Name the offer and add an optional message for shoppers.</s-paragraph>
             <s-paragraph>2. Choose products, or leave this blank to include your whole store.</s-paragraph>
             <s-paragraph>3. Set savings for different quantities, such as buy 2 and save 5%, or buy 3 and save 15%.</s-paragraph>
-            <s-paragraph>4. Save the offer. You can turn it on, turn it off, or edit it later.</s-paragraph>
+            <s-paragraph>4. Save the offer. Shopify applies it automatically when a cart qualifies—shoppers never need a discount code.</s-paragraph>
           </s-stack>
         </s-box>
 
@@ -122,6 +122,7 @@ export default function VolumeDiscountForm({
 
         <s-text-field
           label="Cart message"
+          helpText="Shown with the automatic discount in the cart or at checkout. This is not a coupon code."
           value={form.message}
           onInput={(event) => updateField("message", getEventValue(event))}
         />

@@ -85,7 +85,7 @@ export function BundleDiscountForm({
             <SectionIntro
               step="1"
               title="Name your offer"
-              description="Give the offer an internal name and add the message shoppers will see at checkout. Then choose when it starts."
+              description="Give the offer an internal name and add the message shoppers will see with their automatic discount. Shoppers do not enter a code. Then choose when it starts."
             />
             <s-text-field
               label="Offer name"
@@ -96,6 +96,7 @@ export function BundleDiscountForm({
               label="Cart message"
               name="message"
               defaultValue={initialValues.config.message}
+              helpText="Shown with the automatic discount in the cart or at checkout. This is not a coupon code."
             />
             <s-box
               padding="base"

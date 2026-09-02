@@ -204,7 +204,7 @@ function DiscountBundleListPage() {
             </h1>
             <p style={{ margin: 0, color: "#475569", lineHeight: 1.5 }}>
               Build mix-and-match offers, schedule their start time, and let Shopify
-              activate them automatically.
+              apply them automatically when a cart qualifies—no discount code required.
             </p>
           </div>
           <button
