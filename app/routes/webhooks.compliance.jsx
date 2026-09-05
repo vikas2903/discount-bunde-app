@@ -1,6 +1,13 @@
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 
+export const loader = async () => {
+  return new Response("ok", {
+    status: 200,
+    headers: { "Content-Type": "text/plain" },
+  });
+};
+
 // This app doesn't store shopper or order data. We still authenticate every
 // compliance webhook and erase our shop session when Shopify requests it.
 export const action = async ({ request }) => {
@@ -10,5 +17,8 @@ export const action = async ({ request }) => {
     await db.session.deleteMany({ where: { shop } });
   }
 
-  return new Response(null, { status: 200 });
+  return new Response("ok", {
+    status: 200,
+    headers: { "Content-Type": "text/plain" },
+  });
 };

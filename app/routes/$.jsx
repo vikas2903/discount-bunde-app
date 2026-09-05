@@ -12,10 +12,17 @@ export const loader = async ({ request }) => {
 
   if (isEmbeddedLaunch) {
     const { redirect } = await authenticate.admin(request);
-    return redirect("/app");
+    return redirect(buildEmbeddedRedirectPath("/app", request));
   }
 
   throw new Response("Not Found", { status: 404 });
 };
 
 export const headers = (headersArgs) => boundary.headers(headersArgs);
+
+function buildEmbeddedRedirectPath(path, request) {
+  const url = new URL(request.url);
+  const search = url.searchParams.toString();
+
+  return search ? `${path}?${search}` : path;
+}

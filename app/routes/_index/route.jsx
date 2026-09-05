@@ -22,7 +22,14 @@ export const loader = async ({ request }) => {
   }
 
   const { redirect } = await authenticate.admin(request);
-  return redirect(DASHBOARD_HOME_PATH);
+  return redirect(buildEmbeddedRedirectPath(DASHBOARD_HOME_PATH, request));
 };
 
 export const headers = (headersArgs) => boundary.headers(headersArgs);
+
+function buildEmbeddedRedirectPath(path, request) {
+  const url = new URL(request.url);
+  const search = url.searchParams.toString();
+
+  return search ? `${path}?${search}` : path;
+}
