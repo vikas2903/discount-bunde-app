@@ -98,6 +98,10 @@ Mount a Railway Volume at `/data` when using the SQLite value above. Without a
 persistent database, Shopify sessions disappear on restart and billing approval
 cannot return to the app reliably.
 
+The app refuses to start in production when `DATABASE_URL` is missing or points
+to a relative SQLite file like `file:./dev.sqlite`. This is intentional: billing
+approval depends on Shopify sessions surviving the redirect away from the app.
+
 In the Shopify Partner Dashboard, set the same value for the app URL and add
 `https://your-app.up.railway.app/auth/callback` as an allowed redirect URL.
 For development-store testing only, change `SHOPIFY_BILLING_TEST` to `true`.

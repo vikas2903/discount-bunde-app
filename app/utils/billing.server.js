@@ -13,6 +13,7 @@ export const BILLING_TEST_MODE = process.env.SHOPIFY_BILLING_TEST === "true";
 export const BILLING_DISABLED = process.env.SHOPIFY_SKIP_BILLING === "true";
 export const DASHBOARD_HOME_PATH = "/app/analytics";
 export const BILLING_SUCCESS_PATH = "/app/disocunt_bundle";
+export const BILLING_RETURN_PATH = "/app/billing/return";
 
 function getBypassSubscription() {
   return {
@@ -36,18 +37,42 @@ export async function checkSubscription(billing) {
 
 function getBillingReturnUrl(session) {
   const appHandle = process.env.SHOPIFY_APP_HANDLE?.trim();
+  const appUrl = getAppBaseUrl();
 
   // Returning to Admin (rather than directly to the Railway URL) makes Shopify
   // launch the embedded app with its shop/host/session-token context.
-  if (!appHandle || !session?.shop) {
+  if (!session?.shop) {
     return undefined;
   }
 
   const storeHandle = session.shop.replace(/\.myshopify\.com$/i, "");
-  // After Shopify approves the subscription, send the merchant straight to the
-  // Pro-only Bundle offers page. Its loader verifies the active subscription
-  // before showing any bundle data.
-  return `https://admin.shopify.com/store/${encodeURIComponent(storeHandle)}/apps/${encodeURIComponent(appHandle)}${BILLING_SUCCESS_PATH}`;
+  const returnPath = `${BILLING_RETURN_PATH}?shop=${encodeURIComponent(session.shop)}`;
+
+  if (appHandle) {
+    // After Shopify approves the subscription, re-enter the embedded app through
+    // Admin so Shopify restores shop/host/session-token context for the iframe.
+    return `https://admin.shopify.com/store/${encodeURIComponent(storeHandle)}/apps/${encodeURIComponent(appHandle)}${returnPath}`;
+  }
+
+  // Fallback for environments where SHOPIFY_APP_HANDLE is not configured yet.
+  return appUrl ? `${appUrl}${returnPath}` : undefined;
+}
+
+function getAppBaseUrl() {
+  const configuredUrl = process.env.SHOPIFY_APP_URL?.trim() || "";
+  const markdownMatch = configuredUrl.match(/^\[([^\]]+)]\([^)]*\)$/);
+  const appUrl = markdownMatch?.[1] || configuredUrl;
+
+  try {
+    const url = new URL(appUrl);
+    if (url.protocol !== "https:") return "";
+    url.pathname = "";
+    url.search = "";
+    url.hash = "";
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return "";
+  }
 }
 
 export async function requestSubscription(billing, session) {
@@ -55,10 +80,18 @@ export async function requestSubscription(billing, session) {
     return getBypassSubscription();
   }
 
+  const returnUrl = getBillingReturnUrl(session);
+
+  if (!returnUrl) {
+    throw new Error(
+      "Cannot start Shopify billing because the app could not build a return URL. Set SHOPIFY_APP_URL and make sure the request has a valid Shopify session.",
+    );
+  }
+
   return billing.request({
     plan: MONTHLY_PLAN,
     isTest: BILLING_TEST_MODE,
-    returnUrl: getBillingReturnUrl(session),
+    returnUrl,
   });
 }
 

@@ -75,5 +75,14 @@
   "overrides": {
     "p-map": "^4.0.0"
   },
-  "author": "dell"
+  "author": "dell",
+  "allowScripts": {
+    "core-js@3.49.0": true,
+    "esbuild@0.25.12": true,
+    "prisma@6.19.3": true,
+    "unrs-resolver@1.11.1": true,
+    "@parcel/watcher@2.5.6": true,
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true
+  }
 }
