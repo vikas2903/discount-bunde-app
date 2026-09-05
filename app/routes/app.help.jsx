@@ -1,22 +1,32 @@
 /* global process */
-import { useLoaderData } from "react-router";
+import { useLoaderData, useLocation } from "react-router";
 import { authenticate } from "../shopify.server";
 import { checkSubscription, getPlanDetails } from "../utils/billing.server";
 
 const DEFAULT_SUPPORT_EMAIL = "vikasprasad2903@gmail.com";
 
 export const loader = async ({ request }) => {
-  const { billing } = await authenticate.admin(request);
+  const { billing, session } = await authenticate.admin(request);
   const subscription = await checkSubscription(billing);
 
   return {
     plan: getPlanDetails(subscription),
+    shop: session?.shop || "",
     supportEmail: process.env.SUPPORT_EMAIL?.trim() || DEFAULT_SUPPORT_EMAIL,
   };
 };
 
 export default function HelpPage() {
-  const { plan, supportEmail } = useLoaderData();
+  const { plan, shop, supportEmail } = useLoaderData();
+  const { search } = useLocation();
+  const volumeDiscountsHref = buildEmbeddedHref("/app/volume_discounts", search, shop);
+  const bundleOffersHref = buildEmbeddedHref(
+    plan.isPro ? "/app/disocunt_bundle" : "/app/billing",
+    search,
+    shop,
+  );
+  const storefrontSetupHref = buildEmbeddedHref("/app/storefront_setup", search, shop);
+  const billingHref = buildEmbeddedHref("/app/billing", search, shop);
 
   return (
     <s-page heading="Help & support">
@@ -41,21 +51,21 @@ export default function HelpPage() {
             <Step number="3" title="Test it" copy="Add qualifying products to your cart and confirm the discount appears before sharing it." />
           </div>
           <div style={linkRowStyle}>
-            <s-link href="/app/volume_discounts">Open Quantity offers</s-link>
-            <s-link href={plan.isPro ? "/app/disocunt_bundle" : "/app/billing"}>{plan.isPro ? "Open Bundle offers" : "Upgrade for Bundle offers"}</s-link>
+            <s-link href={volumeDiscountsHref}>Open Quantity offers</s-link>
+            <s-link href={bundleOffersHref}>{plan.isPro ? "Open Bundle offers" : "Upgrade for Bundle offers"}</s-link>
           </div>
         </section>
 
         <section style={cardStyle}>
           <div><div style={eyebrowStyle}>Show offers on your store</div><h2 style={titleStyle}>Website setup</h2></div>
           <p style={copyStyle}>Add the app block in your Shopify theme editor, then test it on your live product or bundle page.</p>
-          <s-link href="/app/storefront_setup">Open Website Template Setup</s-link>
+          <s-link href={storefrontSetupHref}>Open Website Template Setup</s-link>
         </section>
 
         <section style={cardStyle}>
           <div><div style={eyebrowStyle}>Plan & billing</div><h2 style={titleStyle}>{plan.isPro ? "Your Pro plan is active" : "You are on the Free plan"}</h2></div>
           <p style={copyStyle}>{plan.isPro ? "Manage or cancel your subscription in Shopify Admin → Settings → Billing." : "The Free plan includes one active quantity offer. Start a 14-day Pro trial for bundle offers and unlimited quantity offers."}</p>
-          <s-link href="/app/billing">Open Plans & billing</s-link>
+          <s-link href={billingHref}>Open Plans & billing</s-link>
         </section>
 
         <section style={cardStyle}>
@@ -74,6 +84,18 @@ export default function HelpPage() {
 
 function Step({ number, title, copy }) { return <div style={stepStyle}><span style={stepNumberStyle}>{number}</span><div><h3 style={stepTitleStyle}>{title}</h3><p style={copyStyle}>{copy}</p></div></div>; }
 function Faq({ question, answer }) { return <details style={faqStyle}><summary style={faqQuestionStyle}>{question}</summary><p style={faqAnswerStyle}>{answer}</p></details>; }
+
+function buildEmbeddedHref(path, search, shop) {
+  const searchParams = new URLSearchParams(search);
+
+  if (shop && !searchParams.has("shop")) {
+    searchParams.set("shop", shop);
+  }
+
+  const query = searchParams.toString();
+
+  return query ? `${path}?${query}` : path;
+}
 
 const pageStyle = { display: "grid", gap: "1rem", maxWidth: "860px" };
 const heroStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap", padding: "1.25rem", borderRadius: "1rem", background: "linear-gradient(135deg, #0f172a, #065f46)", color: "#fff" };

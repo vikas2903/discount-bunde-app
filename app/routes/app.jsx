@@ -1,5 +1,5 @@
 /* global process */
-import { Outlet, useLoaderData, useRouteError } from "react-router";
+import { Outlet, useLoaderData, useLocation, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
@@ -11,7 +11,7 @@ import {
 const DASHBOARD_HOME_PATH = "/app/analytics";
 
 export const loader = async ({ request }) => {
-  const { billing } = await authenticate.admin(request);
+  const { billing, session } = await authenticate.admin(request);
   let subscription = null;
 
   try {
@@ -26,27 +26,52 @@ export const loader = async ({ request }) => {
   return {
     apiKey: process.env.SHOPIFY_API_KEY || "",
     plan: getPlanDetails(subscription),
+    shop: session?.shop || "",
   };
 };
 
 export default function App() {
-  const { apiKey, plan } = useLoaderData();
+  const { apiKey, plan, shop } = useLoaderData();
+  const { search } = useLocation();
+  const dashboardHref = buildEmbeddedHref(DASHBOARD_HOME_PATH, search, shop);
+  const analyticsHref = buildEmbeddedHref("/app/analytics", search, shop);
+  const volumeDiscountsHref = buildEmbeddedHref("/app/volume_discounts", search, shop);
+  const bundleOffersHref = buildEmbeddedHref(
+    plan.isPro ? "/app/disocunt_bundle" : "/app/billing",
+    search,
+    shop,
+  );
+  const storefrontSetupHref = buildEmbeddedHref("/app/storefront_setup", search, shop);
+  const helpHref = buildEmbeddedHref("/app/help", search, shop);
+  const billingHref = buildEmbeddedHref("/app/billing", search, shop);
 
   return (
     <AppProvider embedded apiKey={apiKey}>
       <s-app-nav>
-        <s-link href={DASHBOARD_HOME_PATH} rel="home">Dashboard</s-link>
-        <s-link href="/app/analytics">Analytics</s-link>
-        <s-link href="/app/volume_discounts">Quantity offers</s-link>
-        <s-link href={plan.isPro ? "/app/disocunt_bundle" : "/app/billing"}> Bundle offers {plan.isPro ? "" : "(Pro)"}</s-link>
-        <s-link href="/app/storefront_setup">Website Template Setup</s-link>
+        <s-link href={dashboardHref} rel="home">Dashboard</s-link>
+        <s-link href={analyticsHref}>Analytics</s-link>
+        <s-link href={volumeDiscountsHref}>Quantity offers</s-link>
+        <s-link href={bundleOffersHref}> Bundle offers {plan.isPro ? "" : "(Pro)"}</s-link>
+        <s-link href={storefrontSetupHref}>Website Template Setup</s-link>
         {/* <s-link href="/app/flatoff_disocunt">Simple sale {plan.isPro ? "" : "(Pro)"}</s-link> */}
-        <s-link href="/app/help">Help & support</s-link>
-        <s-link href="/app/billing">Plans & billing</s-link>
+        <s-link href={helpHref}>Help & support</s-link>
+        <s-link href={billingHref}>Plans & billing</s-link>
       </s-app-nav>
       <Outlet />
     </AppProvider>
   );
+}
+
+function buildEmbeddedHref(path, search, shop) {
+  const searchParams = new URLSearchParams(search);
+
+  if (shop && !searchParams.has("shop")) {
+    searchParams.set("shop", shop);
+  }
+
+  const query = searchParams.toString();
+
+  return query ? `${path}?${query}` : path;
 }
 
 // Shopify needs React Router to catch some thrown responses, so that their headers are included in the response.

@@ -2,6 +2,7 @@ import { authenticate } from "../shopify.server";
 import {
   DASHBOARD_HOME_PATH,
   checkSubscription,
+  getBillingPathWithShop,
   requestSubscription,
 } from "../utils/billing.server";
 
@@ -11,10 +12,17 @@ import {
 // opens the hosted billing approval page in Shopify Admin.
 export const loader = async ({ request }) => {
   const { billing, redirect, session } = await authenticate.admin(request);
-  const subscription = await checkSubscription(billing);
 
-  if (subscription) {
-    return redirect(DASHBOARD_HOME_PATH);
+  try {
+    const subscription = await checkSubscription(billing);
+
+    if (subscription) {
+      return redirect(DASHBOARD_HOME_PATH);
+    }
+  } catch (error) {
+    console.error("[billing] Unable to check subscription before billing request", error);
+    const message = "Shopify could not refresh your billing session. Please reload the app from Shopify Admin and try again.";
+    return redirect(getBillingPathWithShop(request, session, message));
   }
 
   try {
@@ -26,7 +34,7 @@ export const loader = async ({ request }) => {
 
     console.error("[billing] Unable to create subscription", responseOrError);
     const message = getBillingErrorMessage(responseOrError);
-    return redirect(`/app/billing?billing_error=${encodeURIComponent(message)}`);
+    return redirect(getBillingPathWithShop(request, session, message));
   }
 };
 

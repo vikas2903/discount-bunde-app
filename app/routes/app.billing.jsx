@@ -28,21 +28,32 @@ const PRO_FEATURES = [
 ];
 
 export const loader = async ({ request }) => {
-  const { billing } = await authenticate.admin(request);
-  const subscription = await checkSubscription(billing);
+  const { billing, session } = await authenticate.admin(request);
+  let subscription = null;
+  let billingError = "";
+
+  try {
+    subscription = await checkSubscription(billing);
+  } catch (error) {
+    console.error("[billing] Unable to load subscription on billing page", error);
+    billingError =
+      "We could not refresh your billing session. Reload the app from Shopify Admin if this message stays visible.";
+  }
 
   return {
     plan: SUBSCRIPTION_PLAN,
     subscription,
+    shop: session?.shop || "",
+    billingError,
     billingDisabled: BILLING_DISABLED,
     billingTestMode: BILLING_TEST_MODE,
   };
 };
 
 export default function BillingPage() {
-  const { plan, subscription, billingDisabled, billingTestMode } = useLoaderData();
+  const { plan, subscription, shop, billingError: loaderBillingError, billingDisabled, billingTestMode } = useLoaderData();
   const { search } = useLocation();
-  const billingError = new URLSearchParams(search).get("billing_error") || "";
+  const billingError = new URLSearchParams(search).get("billing_error") || loaderBillingError || "";
   const hasSubscription = Boolean(subscription);
 
   function startSubscription() {
@@ -50,6 +61,9 @@ export default function BillingPage() {
     // route is loaded as a document, just like a conventional Subscribe link.
     const startUrl = new URL("/app/billing/start", window.location.origin);
     startUrl.search = window.location.search;
+    if (shop && !startUrl.searchParams.has("shop")) {
+      startUrl.searchParams.set("shop", shop);
+    }
     window.location.assign(startUrl.toString());
   }
 

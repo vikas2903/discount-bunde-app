@@ -123,3 +123,26 @@ export function getPlanDetails(subscription) {
     trialDays: SUBSCRIPTION_PLAN.trialDays,
   };
 }
+
+export function getBillingPathWithShop(request, session, message = "") {
+  const requestUrl = new URL(request.url);
+  const billingUrl = new URL("/app/billing", requestUrl.origin);
+
+  for (const key of ["shop", "host", "embedded", "hmac", "timestamp", "locale"]) {
+    const value = requestUrl.searchParams.get(key);
+
+    if (value) {
+      billingUrl.searchParams.set(key, value);
+    }
+  }
+
+  if (session?.shop && !billingUrl.searchParams.has("shop")) {
+    billingUrl.searchParams.set("shop", session.shop);
+  }
+
+  if (message) {
+    billingUrl.searchParams.set("billing_error", message);
+  }
+
+  return `${billingUrl.pathname}${billingUrl.search}`;
+}

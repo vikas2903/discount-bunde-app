@@ -10,34 +10,52 @@ export async function getDiscountAnalytics(admin, discountIdentifiers = []) {
   // syntax varies by API/version and could return an empty dashboard even when
   // qualifying orders existed.
   while (hasNextPage) {
-    const response = await admin.graphql(
-      `#graphql
-      query DiscountAnalytics($after: String) {
-        orders(first: 250, after: $after, query: "status:any", reverse: true, sortKey: CREATED_AT) {
-          edges {
-            cursor
-            node {
-              id
-              createdAt
-              currentTotalPriceSet { shopMoney { amount currencyCode } }
-              totalDiscountsSet { shopMoney { amount currencyCode } }
-              discountApplications(first: 30) {
-                edges {
-                  node {
-                    __typename
-                    ... on AutomaticDiscountApplication { title }
-                    ... on DiscountCodeApplication { code }
+    let response;
+    let result;
+
+    try {
+      response = await admin.graphql(
+        `#graphql
+        query DiscountAnalytics($after: String) {
+          orders(first: 100, after: $after, query: "status:any", reverse: true, sortKey: CREATED_AT) {
+            edges {
+              cursor
+              node {
+                id
+                createdAt
+                currentTotalPriceSet { shopMoney { amount currencyCode } }
+                totalDiscountsSet { shopMoney { amount currencyCode } }
+                discountApplications(first: 30) {
+                  edges {
+                    node {
+                      __typename
+                      ... on AutomaticDiscountApplication { title }
+                      ... on DiscountCodeApplication { code }
+                    }
                   }
                 }
               }
             }
+            pageInfo { hasNextPage }
           }
-          pageInfo { hasNextPage }
-        }
-      }`,
-      { variables: { after: cursor } },
-    );
-    const result = await response.json();
+        }`,
+        { variables: { after: cursor } },
+      );
+      result = await response.json();
+    } catch (error) {
+      console.error("[analytics] Unable to fetch order analytics", error);
+
+      return {
+        orders: [],
+        graphqlErrors: [
+          {
+            message:
+              "Order analytics could not be loaded right now. Make sure the app has the read_orders scope, then reopen it from Shopify Admin.",
+          },
+        ],
+      };
+    }
+
     if (result.errors?.length) {
       return { orders: [], graphqlErrors: result.errors };
     }

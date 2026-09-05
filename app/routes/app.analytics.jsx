@@ -3,39 +3,34 @@ import { authenticate } from "../shopify.server";
 import { getDiscountAnalytics } from "../services/analytics.server";
 import { listBundleDiscounts } from "../services/bundle-discount.server";
 import { listVolumeDiscounts } from "../services/volume-discount.server";
-import { toErrorMessage } from "../utils/bundle-discount";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
 
-  try {
-    const [bundleResult, volumeResult] = await Promise.all([
-      listBundleDiscounts(admin),
-      listVolumeDiscounts(admin),
-    ]);
-    const identifiers = [...bundleResult.discounts, ...volumeResult.discounts]
-      .flatMap((discount) => [discount.title, discount.config?.message])
-      .filter(Boolean);
-    const analytics = await getDiscountAnalytics(admin, identifiers);
-    const offers = [
-      ...bundleResult.discounts.map((discount) => toOffer(discount, "Bundle")),
-      ...volumeResult.discounts.map((discount) => toOffer(discount, "Quantity")),
-    ];
-    const orders = analytics.orders.filter((order) => order.usesAppDiscount);
+  const [bundleResult, volumeResult] = await Promise.all([
+    safelyLoadDashboardData(() => listBundleDiscounts(admin), "Bundle offers could not be loaded right now."),
+    safelyLoadDashboardData(() => listVolumeDiscounts(admin), "Quantity offers could not be loaded right now."),
+  ]);
+  const identifiers = [...bundleResult.discounts, ...volumeResult.discounts]
+    .flatMap((discount) => [discount.title, discount.config?.message])
+    .filter(Boolean);
+  const analytics = await getDiscountAnalytics(admin, identifiers);
+  const offers = [
+    ...bundleResult.discounts.map((discount) => toOffer(discount, "Bundle")),
+    ...volumeResult.discounts.map((discount) => toOffer(discount, "Quantity")),
+  ];
+  const orders = analytics.orders.filter((order) => order.usesAppDiscount);
 
-    return {
-      shop: session.shop,
-      orders,
-      offers: summarizeOffers(offers, orders),
-      loadError: [
-        ...bundleResult.graphqlErrors,
-        ...volumeResult.graphqlErrors,
-        ...analytics.graphqlErrors,
-      ].map(({ message }) => message).join(" | ") || null,
-    };
-  } catch (error) {
-    return { shop: session.shop, orders: [], offers: [], loadError: toErrorMessage(error) };
-  }
+  return {
+    shop: session.shop,
+    orders,
+    offers: summarizeOffers(offers, orders),
+    loadError: [
+      ...bundleResult.graphqlErrors,
+      ...volumeResult.graphqlErrors,
+      ...analytics.graphqlErrors,
+    ].map(({ message }) => message).join(" | ") || null,
+  };
 };
 
 export default function AnalyticsPage() {
@@ -196,6 +191,19 @@ function summarizeOffers(offers, orders) {
 
 function normalizeIdentifier(value) {
   return String(value || "").trim().toLocaleLowerCase();
+}
+
+async function safelyLoadDashboardData(loadData, fallbackMessage) {
+  try {
+    return await loadData();
+  } catch (error) {
+    console.error("[analytics] Unable to load dashboard data", error);
+
+    return {
+      discounts: [],
+      graphqlErrors: [{ message: fallbackMessage }],
+    };
+  }
 }
 
 const tableHeaderStyle = { padding: "0.85rem 1rem", textAlign: "left", color: "#475569", fontSize: "0.8rem", borderBottom: "1px solid #dbe4ea" };

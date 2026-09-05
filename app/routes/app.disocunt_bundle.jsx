@@ -9,12 +9,12 @@ import {
 } from "../services/bundle-discount.server";
 import { authenticate } from "../shopify.server";
 import { toErrorMessage } from "../utils/bundle-discount";
-import { checkSubscription } from "../utils/billing.server";
+import { checkSubscription, getBillingPathWithShop } from "../utils/billing.server";
 
 export const loader = async ({ request }) => {
-  const { admin, billing, redirect } = await authenticate.admin(request);
+  const { admin, billing, redirect, session } = await authenticate.admin(request);
   if (!(await checkSubscription(billing))) {
-    return redirect("/app/billing");
+    return redirect(getBillingPathWithShop(request, session));
   }
   const [collectionsResult, discountsResult] = await Promise.allSettled([
     getBundleCollections(admin),
@@ -44,9 +44,9 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { admin, billing, redirect } = await authenticate.admin(request);
+  const { admin, billing, redirect, session } = await authenticate.admin(request);
   if (!(await checkSubscription(billing))) {
-    return redirect("/app/billing");
+    return redirect(getBillingPathWithShop(request, session));
   }
   const formData = await request.formData();
   const intent = String(formData.get("intent") || "");
