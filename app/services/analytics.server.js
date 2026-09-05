@@ -1,15 +1,38 @@
 const DAYS_TO_LOAD = 30;
+const ORDER_PAGE_SIZE = 50;
+const MAX_ORDER_PAGES = 4;
+
+export async function getShopCurrencyCode(admin) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      query ShopCurrency {
+        shop {
+          currencyCode
+        }
+      }`,
+    );
+    const result = await response.json();
+
+    return result.data?.shop?.currencyCode || "USD";
+  } catch (error) {
+    console.error("[analytics] Unable to load shop currency", error);
+
+    return "USD";
+  }
+}
 
 export async function getDiscountAnalytics(admin, discountIdentifiers = []) {
   const since = new Date(Date.now() - DAYS_TO_LOAD * 24 * 60 * 60 * 1000).toISOString();
   const allNodes = [];
   let cursor = null;
   let hasNextPage = true;
+  let pageCount = 0;
 
   // Fetch newest orders first, then filter locally. Shopify order search date
   // syntax varies by API/version and could return an empty dashboard even when
   // qualifying orders existed.
-  while (hasNextPage) {
+  while (hasNextPage && pageCount < MAX_ORDER_PAGES) {
     let response;
     let result;
 
@@ -17,7 +40,7 @@ export async function getDiscountAnalytics(admin, discountIdentifiers = []) {
       response = await admin.graphql(
         `#graphql
         query DiscountAnalytics($after: String) {
-          orders(first: 100, after: $after, query: "status:any", reverse: true, sortKey: CREATED_AT) {
+          orders(first: ${ORDER_PAGE_SIZE}, after: $after, query: "status:any", reverse: true, sortKey: CREATED_AT) {
             edges {
               cursor
               node {
@@ -61,6 +84,7 @@ export async function getDiscountAnalytics(admin, discountIdentifiers = []) {
     }
 
     const edges = result.data?.orders?.edges || [];
+    pageCount += 1;
     allNodes.push(...edges.map(({ node }) => node));
     const oldestOrder = edges[edges.length - 1]?.node;
     hasNextPage = Boolean(result.data?.orders?.pageInfo?.hasNextPage) &&
@@ -95,5 +119,10 @@ export async function getDiscountAnalytics(admin, discountIdentifiers = []) {
     };
   });
 
-  return { orders, graphqlErrors: [] };
+  return {
+    orders,
+    graphqlErrors: hasNextPage
+      ? [{ message: "Dashboard analytics are showing a recent sample of orders so the page can load quickly." }]
+      : [],
+  };
 }

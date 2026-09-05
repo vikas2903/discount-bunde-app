@@ -1,8 +1,8 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "6768c8ee8bcc15436a4881b9250a8860"
-name = "BundleBoost:Discount Bundle"
-application_url = "https://discount-bunde-app-production.up.railway.app"
+name = "Discount Bundle App" 
+application_url = "https://discount-bundle-production.up.railway.app/"
 embedded = true
 
 [build]
@@ -37,5 +37,5 @@ scopes = "read_discounts,read_orders,read_products,read_themes,write_discounts"
 
 [auth]
 redirect_urls = [
-  "https://discount-bunde-app-production.up.railway.app/auth/callback"
+  "https://discount-bundle-production.up.railway.app/auth/callback"
 ]

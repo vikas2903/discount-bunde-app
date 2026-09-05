@@ -1,42 +1,63 @@
-import { useLoaderData } from "react-router";
+import { useLoaderData, useRouteError } from "react-router";
 import { authenticate } from "../shopify.server";
-import { getDiscountAnalytics } from "../services/analytics.server";
+import {
+  getDiscountAnalytics,
+  getShopCurrencyCode,
+} from "../services/analytics.server";
 import { listBundleDiscounts } from "../services/bundle-discount.server";
 import { listVolumeDiscounts } from "../services/volume-discount.server";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
 
-  const [bundleResult, volumeResult] = await Promise.all([
-    safelyLoadDashboardData(() => listBundleDiscounts(admin), "Bundle offers could not be loaded right now."),
-    safelyLoadDashboardData(() => listVolumeDiscounts(admin), "Quantity offers could not be loaded right now."),
-  ]);
-  const identifiers = [...bundleResult.discounts, ...volumeResult.discounts]
-    .flatMap((discount) => [discount.title, discount.config?.message])
-    .filter(Boolean);
-  const analytics = await getDiscountAnalytics(admin, identifiers);
-  const offers = [
-    ...bundleResult.discounts.map((discount) => toOffer(discount, "Bundle")),
-    ...volumeResult.discounts.map((discount) => toOffer(discount, "Quantity")),
-  ];
-  const orders = analytics.orders.filter((order) => order.usesAppDiscount);
+  try {
+    const [currencyCode, bundleResult, volumeResult] = await Promise.all([
+      getShopCurrencyCode(admin),
+      safelyLoadDashboardData(() => listBundleDiscounts(admin), "Bundle offers could not be loaded right now."),
+      safelyLoadDashboardData(() => listVolumeDiscounts(admin), "Quantity offers could not be loaded right now."),
+    ]);
+    const identifiers = [...bundleResult.discounts, ...volumeResult.discounts]
+      .flatMap((discount) => [discount.title, discount.config?.message])
+      .filter(Boolean);
+    const analytics = await getDiscountAnalytics(admin, identifiers);
+    const offers = [
+      ...bundleResult.discounts.map((discount) => toOffer(discount, "Bundle")),
+      ...volumeResult.discounts.map((discount) => toOffer(discount, "Quantity")),
+    ];
+    const orders = analytics.orders.filter((order) => order.usesAppDiscount);
 
-  return {
-    shop: session.shop,
-    orders,
-    offers: summarizeOffers(offers, orders),
-    loadError: [
-      ...bundleResult.graphqlErrors,
-      ...volumeResult.graphqlErrors,
-      ...analytics.graphqlErrors,
-    ].map(({ message }) => message).join(" | ") || null,
-  };
+    return {
+      shop: session.shop,
+      currencyCode,
+      orders,
+      offers: summarizeOffers(offers, orders),
+      loadError: [
+        ...bundleResult.graphqlErrors,
+        ...volumeResult.graphqlErrors,
+        ...analytics.graphqlErrors,
+      ].map(({ message }) => message).join(" | ") || null,
+    };
+  } catch (error) {
+    console.error("[analytics] Dashboard loader failed", error);
+
+    return {
+      shop: session.shop,
+      currencyCode: "USD",
+      orders: [],
+      offers: [],
+      loadError: "Dashboard data could not be loaded right now. Reopen the app from Shopify Admin and try again.",
+    };
+  }
 };
 
 export default function AnalyticsPage() {
-  const { shop, orders, offers, loadError } = useLoaderData();
-  const currency = orders[0]?.currencyCode || "USD";
-  const money = new Intl.NumberFormat(undefined, { style: "currency", currency });
+  const loaderData = useLoaderData();
+  const shop = loaderData?.shop || "your store";
+  const currencyCode = loaderData?.currencyCode || "USD";
+  const orders = Array.isArray(loaderData?.orders) ? loaderData.orders : [];
+  const offers = Array.isArray(loaderData?.offers) ? loaderData.offers : [];
+  const loadError = loaderData?.loadError || null;
+  const money = getMoneyFormatter(currencyCode);
   const savings = orders.reduce((total, order) => total + order.savings, 0);
   const revenue = orders.reduce((total, order) => total + order.revenue, 0);
   const activeOffers = offers.filter((offer) => offer.status === "ACTIVE").length;
@@ -193,6 +214,20 @@ function normalizeIdentifier(value) {
   return String(value || "").trim().toLocaleLowerCase();
 }
 
+function getMoneyFormatter(currencyCode) {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: String(currencyCode || "USD"),
+    });
+  } catch {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: "USD",
+    });
+  }
+}
+
 async function safelyLoadDashboardData(loadData, fallbackMessage) {
   try {
     return await loadData();
@@ -204,6 +239,30 @@ async function safelyLoadDashboardData(loadData, fallbackMessage) {
       graphqlErrors: [{ message: fallbackMessage }],
     };
   }
+}
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+
+  console.error("[analytics] Dashboard render failed", error);
+
+  return (
+    <s-page heading="Analytics">
+      <div style={{ display: "grid", gap: "1rem" }}>
+        <s-banner tone="critical">
+          <s-paragraph>
+            Dashboard could not render right now. Reopen the app from Shopify Admin and try again.
+          </s-paragraph>
+        </s-banner>
+        <section style={{ padding: "1rem", border: "1px solid #dbe4ea", borderRadius: "0.85rem", background: "#fff" }}>
+          <strong>Analytics</strong>
+          <p style={{ margin: "0.4rem 0 0", color: "#64748b" }}>
+            The rest of the app can still be used from the navigation.
+          </p>
+        </section>
+      </div>
+    </s-page>
+  );
 }
 
 const tableHeaderStyle = { padding: "0.85rem 1rem", textAlign: "left", color: "#475569", fontSize: "0.8rem", borderBottom: "1px solid #dbe4ea" };
