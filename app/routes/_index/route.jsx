@@ -21,8 +21,12 @@ export const loader = async ({ request }) => {
     });
   }
 
-  const { redirect } = await authenticate.admin(request);
-  return redirect(buildEmbeddedRedirectPath(DASHBOARD_HOME_PATH, request));
+  try {
+    const { redirect } = await authenticate.admin(request);
+    return redirect(buildEmbeddedRedirectPath(DASHBOARD_HOME_PATH, request));
+  } catch (error) {
+    return handleLaunchAuthError(error, request);
+  }
 };
 
 export const headers = (headersArgs) => boundary.headers(headersArgs);
@@ -32,4 +36,23 @@ function buildEmbeddedRedirectPath(path, request) {
   const search = url.searchParams.toString();
 
   return search ? `${path}?${search}` : path;
+}
+
+function handleLaunchAuthError(error, request) {
+  if (error instanceof Response && [401, 403].includes(error.status)) {
+    const url = new URL(request.url);
+    const loginUrl = new URL("/auth/login", url.origin);
+    const shop = url.searchParams.get("shop");
+
+    if (shop) {
+      loginUrl.searchParams.set("shop", shop);
+    }
+
+    return new Response(null, {
+      status: 302,
+      headers: { Location: `${loginUrl.pathname}${loginUrl.search}` },
+    });
+  }
+
+  throw error;
 }
