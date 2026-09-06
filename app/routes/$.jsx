@@ -11,12 +11,8 @@ export const loader = async ({ request }) => {
     url.searchParams.has("id_token");
 
   if (isEmbeddedLaunch) {
-    try {
-      const { redirect } = await authenticate.admin(request);
-      return redirect(buildEmbeddedRedirectPath("/app", request));
-    } catch (error) {
-      return handleLaunchAuthError(error, request);
-    }
+    const { redirect } = await authenticate.admin(request);
+    return redirect(buildEmbeddedRedirectPath("/app", request));
   }
 
   throw new Response("Not Found", { status: 404 });
@@ -29,23 +25,4 @@ function buildEmbeddedRedirectPath(path, request) {
   const search = url.searchParams.toString();
 
   return search ? `${path}?${search}` : path;
-}
-
-function handleLaunchAuthError(error, request) {
-  if (error instanceof Response && [401, 403].includes(error.status)) {
-    const url = new URL(request.url);
-    const loginUrl = new URL("/auth/login", url.origin);
-    const shop = url.searchParams.get("shop");
-
-    if (shop) {
-      loginUrl.searchParams.set("shop", shop);
-    }
-
-    return new Response(null, {
-      status: 302,
-      headers: { Location: `${loginUrl.pathname}${loginUrl.search}` },
-    });
-  }
-
-  throw error;
 }
